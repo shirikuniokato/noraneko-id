@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"noraneko-id/internal/config"
+	"noraneko-id/internal/handler"
+	"noraneko-id/internal/middleware"
 	"noraneko-id/pkg/database"
 
 	"github.com/gin-gonic/gin"
@@ -44,6 +46,15 @@ func main() {
 
 	r := gin.Default()
 
+	// ミドルウェアの設定
+	r.Use(middleware.SecurityHeadersMiddleware())
+	r.Use(middleware.CORSMiddleware())
+
+	// ハンドラーの初期化
+	authHandler := handler.NewAuthHandler(cfg)
+	oauth2Handler := handler.NewOAuth2Handler(cfg)
+	clientHandler := handler.NewClientHandler(cfg)
+
 	// ヘルスチェック用エンドポイント
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -53,21 +64,38 @@ func main() {
 		})
 	})
 
-	// OAuth2エンドポイント（プレースホルダー）
+	// 認証エンドポイント
+	auth := r.Group("/auth")
+	{
+		auth.POST("/register", authHandler.Register)
+		auth.POST("/login", authHandler.Login)
+		auth.POST("/logout", authHandler.Logout)
+		auth.GET("/profile", middleware.AuthMiddleware(), authHandler.Profile)
+	}
+
+	// OAuth2エンドポイント
 	oauth := r.Group("/oauth2")
 	{
-		oauth.GET("/authorize", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "OAuth2 authorize endpoint"})
-		})
-		oauth.POST("/token", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "OAuth2 token endpoint"})
-		})
-		oauth.GET("/userinfo", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "OAuth2 userinfo endpoint"})
-		})
-		oauth.POST("/revoke", func(c *gin.Context) {
-			c.JSON(http.StatusOK, gin.H{"message": "OAuth2 revoke endpoint"})
-		})
+		oauth.GET("/authorize", middleware.OptionalAuthMiddleware(), oauth2Handler.Authorize)
+		oauth.POST("/token", oauth2Handler.Token)
+		oauth.GET("/userinfo", oauth2Handler.UserInfo)
+		oauth.POST("/revoke", oauth2Handler.Revoke)
+	}
+
+	// 管理者エンドポイント
+	admin := r.Group("/admin")
+	admin.Use(middleware.AdminAuthMiddleware())
+	{
+		// クライアント管理
+		clients := admin.Group("/clients")
+		{
+			clients.POST("", clientHandler.CreateClient)
+			clients.GET("", clientHandler.GetClients)
+			clients.GET("/:id", clientHandler.GetClient)
+			clients.PUT("/:id", clientHandler.UpdateClient)
+			clients.DELETE("/:id", clientHandler.DeleteClient)
+			clients.POST("/:id/regenerate-secret", clientHandler.RegenerateClientSecret)
+		}
 	}
 
 	// サーバー起動
