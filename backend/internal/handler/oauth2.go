@@ -82,21 +82,30 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 		return
 	}
 
-	// 認可コードの生成
-	authCode, err := h.oauth2Service.GenerateAuthorizationCode(userUUID, client, &req)
-	if err != nil {
-		h.handleAuthorizeError(c, &req, "server_error", err.Error())
+	// ユーザーの同意確認
+	approve := c.Query("approve")
+	if c.Request.Method == "POST" || approve == "true" {
+		// POST リクエストまたは approve=true の場合、認可コードを生成
+		authCode, err := h.oauth2Service.GenerateAuthorizationCode(userUUID, client, &req)
+		if err != nil {
+			h.handleAuthorizeError(c, &req, "server_error", err.Error())
+			return
+		}
+
+		// リダイレクトURIの構築
+		redirectURI, err := h.oauth2Service.BuildRedirectURI(req.RedirectURI, authCode.Code, req.State)
+		if err != nil {
+			h.handleAuthorizeError(c, &req, "server_error", err.Error())
+			return
+		}
+
+		c.Redirect(http.StatusFound, redirectURI)
 		return
 	}
 
-	// リダイレクトURIの構築
-	redirectURI, err := h.oauth2Service.BuildRedirectURI(req.RedirectURI, authCode.Code, req.State)
-	if err != nil {
-		h.handleAuthorizeError(c, &req, "server_error", err.Error())
-		return
-	}
-
-	c.Redirect(http.StatusFound, redirectURI)
+	// ユーザー同意画面にリダイレクト（フロントエンドアプリケーション）
+	frontendAuthURL := "http://localhost:3001/oauth2/authorize?" + c.Request.URL.RawQuery
+	c.Redirect(http.StatusFound, frontendAuthURL)
 }
 
 // Token OAuth2 トークンエンドポイント POST /oauth2/token
@@ -347,6 +356,47 @@ func (h *OAuth2Handler) handleAuthorizeError(c *gin.Context, req *oauth2.Authori
 	c.JSON(http.StatusBadRequest, gin.H{
 		"error":             errorCode,
 		"error_description": errorDescription,
+	})
+}
+
+// GetClientInfo クライアント情報取得エンドポイント GET /oauth2/client-info/:client_id
+// @Summary クライアント情報取得
+// @Description OAuth2クライアントの公開情報を取得します（認可画面用）
+// @Tags OAuth2
+// @Produce json
+// @Param client_id path string true "クライアントID"
+// @Success 200 {object} map[string]interface{} "クライアント情報"
+// @Failure 404 {object} map[string]interface{} "クライアントが見つかりません"
+// @Router /oauth2/client-info/{client_id} [get]
+func (h *OAuth2Handler) GetClientInfo(c *gin.Context) {
+	clientID := c.Param("client_id")
+	if clientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "client_id is required",
+		})
+		return
+	}
+
+	// データベースからクライアント情報を取得
+	var client model.OAuthClient
+	if err := database.DB.Where("client_id = ?", clientID).First(&client).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Client not found",
+		})
+		return
+	}
+
+	// 公開情報のみを返す（シークレットは含めない）
+	redirectURI := ""
+	if len(client.RedirectURIs) > 0 {
+		redirectURI = client.RedirectURIs[0]
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"id":           client.ID,
+		"name":         client.Name,
+		"description":  client.Description,
+		"redirect_uri": redirectURI,
 	})
 }
 

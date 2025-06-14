@@ -109,9 +109,11 @@ func main() {
 	oauth := r.Group("/oauth2")
 	{
 		oauth.GET("/authorize", middleware.OptionalAuthMiddleware(), oauth2Handler.Authorize)
+		oauth.POST("/authorize", middleware.OptionalAuthMiddleware(), oauth2Handler.Authorize)
 		oauth.POST("/token", oauth2Handler.Token)
 		oauth.GET("/userinfo", oauth2Handler.UserInfo)
 		oauth.POST("/revoke", oauth2Handler.Revoke)
+		oauth.GET("/client-info/:client_id", oauth2Handler.GetClientInfo)
 	}
 
 	// 管理者エンドポイント
