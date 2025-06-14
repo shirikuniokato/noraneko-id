@@ -15,6 +15,19 @@ export default function NewClientPage() {
     redirect_uri: '',
     scopes: 'read',
     grant_types: 'authorization_code',
+    
+    // UI設定フィールド
+    logo_url: '',
+    website: '',
+    privacy_policy_url: '',
+    terms_of_service_url: '',
+    support_email: '',
+    brand_color: '#4f46e5',
+    consent_message: '',
+    
+    // セキュリティ設定
+    require_consent: true,
+    trusted_client: false,
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -31,6 +44,19 @@ export default function NewClientPage() {
         redirect_uri: formData.redirect_uri,
         scopes: formData.scopes.split(',').map(s => s.trim()),
         grant_types: formData.grant_types.split(',').map(s => s.trim()),
+        
+        // UI設定フィールド
+        logo_url: formData.logo_url || undefined,
+        website: formData.website || undefined,
+        privacy_policy_url: formData.privacy_policy_url || undefined,
+        terms_of_service_url: formData.terms_of_service_url || undefined,
+        support_email: formData.support_email || undefined,
+        brand_color: formData.brand_color || undefined,
+        consent_message: formData.consent_message || undefined,
+        
+        // セキュリティ設定
+        require_consent: formData.require_consent,
+        trusted_client: formData.trusted_client,
       });
       router.push('/dashboard/clients');
     } catch (err: unknown) {
@@ -41,10 +67,12 @@ export default function NewClientPage() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
@@ -189,6 +217,184 @@ export default function NewClientPage() {
                 <p className="mt-1 text-sm text-gray-500">
                   OAuth2のグラントタイプを選択してください
                 </p>
+              </div>
+
+              {/* UI設定セクション */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">認証画面の外観設定</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="logo_url" className="block text-sm font-medium text-gray-700">
+                      ロゴURL
+                    </label>
+                    <input
+                      type="url"
+                      name="logo_url"
+                      id="logo_url"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="https://example.com/logo.png"
+                      value={formData.logo_url}
+                      onChange={handleInputChange}
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      認証画面に表示されるロゴ画像のURL（任意）
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="brand_color" className="block text-sm font-medium text-gray-700">
+                      ブランドカラー
+                    </label>
+                    <div className="mt-1 flex items-center space-x-3">
+                      <input
+                        type="color"
+                        name="brand_color"
+                        id="brand_color"
+                        className="h-10 w-16 border border-gray-300 rounded-md cursor-pointer"
+                        value={formData.brand_color}
+                        onChange={handleInputChange}
+                      />
+                      <input
+                        type="text"
+                        name="brand_color"
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="#4f46e5"
+                        value={formData.brand_color}
+                        onChange={handleInputChange}
+                      />
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">
+                      認証画面のアクセントカラー
+                    </p>
+                  </div>
+
+                  <div>
+                    <label htmlFor="consent_message" className="block text-sm font-medium text-gray-700">
+                      カスタム同意メッセージ
+                    </label>
+                    <textarea
+                      name="consent_message"
+                      id="consent_message"
+                      rows={3}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="があなたのnoraneko-idアカウントへのアクセスを求めています"
+                      value={formData.consent_message}
+                      onChange={handleInputChange}
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      認証画面に表示するカスタムメッセージ（空の場合はデフォルトメッセージを使用）
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* リンク設定セクション */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">リンク設定</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="website" className="block text-sm font-medium text-gray-700">
+                      ウェブサイトURL
+                    </label>
+                    <input
+                      type="url"
+                      name="website"
+                      id="website"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="https://example.com"
+                      value={formData.website}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="privacy_policy_url" className="block text-sm font-medium text-gray-700">
+                      プライバシーポリシーURL
+                    </label>
+                    <input
+                      type="url"
+                      name="privacy_policy_url"
+                      id="privacy_policy_url"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="https://example.com/privacy"
+                      value={formData.privacy_policy_url}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="terms_of_service_url" className="block text-sm font-medium text-gray-700">
+                      利用規約URL
+                    </label>
+                    <input
+                      type="url"
+                      name="terms_of_service_url"
+                      id="terms_of_service_url"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="https://example.com/terms"
+                      value={formData.terms_of_service_url}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="support_email" className="block text-sm font-medium text-gray-700">
+                      サポートメールアドレス
+                    </label>
+                    <input
+                      type="email"
+                      name="support_email"
+                      id="support_email"
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="support@example.com"
+                      value={formData.support_email}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* セキュリティ設定セクション */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">セキュリティ設定</h3>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="require_consent"
+                      id="require_consent"
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      checked={formData.require_consent}
+                      onChange={handleInputChange}
+                    />
+                    <label htmlFor="require_consent" className="ml-2 block text-sm text-gray-900">
+                      ユーザーに同意画面を表示する
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-500 ml-6">
+                    チェックを外すと、認証時に同意画面をスキップします
+                  </p>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="trusted_client"
+                      id="trusted_client"
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      checked={formData.trusted_client}
+                      onChange={handleInputChange}
+                    />
+                    <label htmlFor="trusted_client" className="ml-2 block text-sm text-gray-900">
+                      信頼済みクライアント
+                    </label>
+                  </div>
+                  <p className="text-sm text-gray-500 ml-6">
+                    信頼済みクライアントは自動的に認可され、同意画面が表示されません
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3">

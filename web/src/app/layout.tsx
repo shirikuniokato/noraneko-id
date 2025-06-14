@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "noraneko-id Admin",
-  description: "noraneko-id 管理コンソール",
+  title: "Noraneko ID Admin",
+  description: "Noraneko ID 管理コンソール",
 };
 
 export default function RootLayout({

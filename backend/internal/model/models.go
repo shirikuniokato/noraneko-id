@@ -55,6 +55,11 @@ type OAuthClient struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// TableName overrides the table name used by OAuthClient to `o_auth_clients`
+func (OAuthClient) TableName() string {
+	return "o_auth_clients"
+}
+
 // OAuthAuthorizationCode OAuth2認可コードモデル
 type OAuthAuthorizationCode struct {
 	ID                    uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`

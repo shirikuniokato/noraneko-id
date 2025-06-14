@@ -34,7 +34,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <h1 className="text-3xl font-bold text-gray-900">
-              noraneko-id 管理コンソール
+              Noraneko ID 管理コンソール
             </h1>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-500">
@@ -152,7 +152,7 @@ export default function DashboardPage() {
           {/* クイックアクション */}
           <div className="mt-8">
             <h2 className="text-lg font-medium text-gray-900 mb-4">クイックアクション</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Link
                 href="/dashboard/clients/new"
                 className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
@@ -169,6 +169,26 @@ export default function DashboardPage() {
                   </p>
                   <p className="text-sm text-gray-500">
                     アプリケーションを統合するための新しいクライアントを作成します
+                  </p>
+                </div>
+              </Link>
+
+              <Link
+                href="/register"
+                className="relative rounded-lg border border-gray-300 bg-white px-6 py-5 shadow-sm flex items-center space-x-3 hover:border-gray-400 focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+              >
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="absolute inset-0" aria-hidden="true" />
+                  <p className="text-sm font-medium text-gray-900">
+                    新しいユーザーを作成
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    知り合いやチームメンバーのアカウントを作成します
                   </p>
                 </div>
               </Link>

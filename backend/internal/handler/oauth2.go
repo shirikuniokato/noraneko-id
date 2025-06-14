@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // OAuth2Handler OAuth2 エンドポイントのハンドラー
@@ -386,7 +388,8 @@ func (h *OAuth2Handler) handleAuthorizeError(c *gin.Context, req *oauth2.Authori
 func (h *OAuth2Handler) showAuthorizePage(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient, userID uuid.UUID) {
 	// ユーザー情報を取得
 	var user model.User
-	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+	db := database.GetDB()
+	if err := db.Where("id = ?", userID).First(&user).Error; err != nil {
 		h.handleAuthorizeError(c, req, "server_error", "ユーザー情報の取得に失敗しました")
 		return
 	}
@@ -458,9 +461,11 @@ func (h *OAuth2Handler) GetClientInfo(c *gin.Context) {
 		return
 	}
 
-	// データベースからクライアント情報を取得
+	// データベースからクライアント情報を取得  
 	var client model.OAuthClient
-	if err := database.DB.Where("client_id = ?", clientID).First(&client).Error; err != nil {
+	db := database.GetDB()
+	
+	if err := db.Where("client_id = ?", clientID).First(&client).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "Client not found",
 		})

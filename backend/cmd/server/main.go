@@ -18,12 +18,12 @@ import (
 	_ "noraneko-id/docs"
 )
 
-// @title noraneko-id API
+// @title Noraneko ID API
 // @version 1.0
 // @description プライベートサービス開発者向けIDaaS（Identity as a Service）API
 // @termsOfService https://noraneko-id.com/terms
 
-// @contact.name noraneko-id Support
+// @contact.name Noraneko ID Support
 // @contact.url https://noraneko-id.com/support
 // @contact.email support@noraneko-id.com
 
@@ -113,7 +113,7 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
-			"service": "noraneko-id",
+			"service": "Noraneko ID",
 			"environment": cfg.Environment,
 		})
 	})
@@ -157,7 +157,7 @@ func main() {
 
 	// サーバー起動
 	serverAddr := ":" + cfg.Server.Port
-	log.Printf("Starting noraneko-id server on %s (environment: %s)", serverAddr, cfg.Environment)
+	log.Printf("Starting Noraneko ID server on %s (environment: %s)", serverAddr, cfg.Environment)
 	if err := r.Run(serverAddr); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}

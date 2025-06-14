@@ -36,7 +36,7 @@ function LoginForm() {
             管理画面へログイン
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            noraneko-id 管理コンソール
+            Noraneko ID 管理コンソール
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -97,12 +97,9 @@ function LoginForm() {
           </div>
 
           <div className="text-center">
-            <Link
-              href="/register"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              アカウントをお持ちでない方はこちら
-            </Link>
+            <p className="text-sm text-gray-500">
+              アカウントは管理者によって作成されます
+            </p>
           </div>
         </form>
       </div>

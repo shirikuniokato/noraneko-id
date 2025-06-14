@@ -253,6 +253,127 @@ export default function ClientDetailPage() {
                     </div>
                   </dd>
                 </div>
+                
+                {/* UI設定情報 */}
+                {(client.logo_url || client.website || client.brand_color || client.consent_message) && (
+                  <>
+                    <div className="bg-gray-50 px-4 py-5 sm:px-6">
+                      <h4 className="text-md font-medium text-gray-900">認証画面の外観設定</h4>
+                    </div>
+                    {client.logo_url && (
+                      <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">ロゴURL</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <img src={client.logo_url} alt="Logo" className="h-8 w-8 object-cover rounded" />
+                            <a href={client.logo_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-500 break-all">
+                              {client.logo_url}
+                            </a>
+                          </div>
+                        </dd>
+                      </div>
+                    )}
+                    {client.brand_color && (
+                      <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">ブランドカラー</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <div 
+                              className="w-6 h-6 rounded border border-gray-300"
+                              style={{ backgroundColor: client.brand_color }}
+                            ></div>
+                            <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
+                              {client.brand_color}
+                            </code>
+                          </div>
+                        </dd>
+                      </div>
+                    )}
+                    {client.consent_message && (
+                      <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">カスタム同意メッセージ</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          {client.consent_message}
+                        </dd>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* リンク設定情報 */}
+                {(client.website || client.privacy_policy_url || client.terms_of_service_url || client.support_email) && (
+                  <>
+                    <div className="bg-gray-50 px-4 py-5 sm:px-6">
+                      <h4 className="text-md font-medium text-gray-900">リンク設定</h4>
+                    </div>
+                    {client.website && (
+                      <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">ウェブサイト</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <a href={client.website} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-500 break-all">
+                            {client.website}
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                    {client.privacy_policy_url && (
+                      <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">プライバシーポリシー</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <a href={client.privacy_policy_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-500 break-all">
+                            {client.privacy_policy_url}
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                    {client.terms_of_service_url && (
+                      <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">利用規約</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <a href={client.terms_of_service_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-500 break-all">
+                            {client.terms_of_service_url}
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                    {client.support_email && (
+                      <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt className="text-sm font-medium text-gray-500">サポートメール</dt>
+                        <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                          <a href={`mailto:${client.support_email}`} className="text-indigo-600 hover:text-indigo-500">
+                            {client.support_email}
+                          </a>
+                        </dd>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* セキュリティ設定情報 */}
+                <div className="bg-gray-50 px-4 py-5 sm:px-6">
+                  <h4 className="text-md font-medium text-gray-900">セキュリティ設定</h4>
+                </div>
+                <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">同意画面表示</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      client.require_consent ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {client.require_consent ? '表示する' : 'スキップ'}
+                    </span>
+                  </dd>
+                </div>
+                <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                  <dt className="text-sm font-medium text-gray-500">信頼済みクライアント</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      client.trusted_client ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {client.trusted_client ? '信頼済み' : '通常'}
+                    </span>
+                  </dd>
+                </div>
+
                 <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                   <dt className="text-sm font-medium text-gray-500">作成日時</dt>
                   <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">

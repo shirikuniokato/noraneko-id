@@ -160,8 +160,39 @@ func AdminAuthMiddleware() gin.HandlerFunc {
 // CORSMiddleware CORS ミドルウェア
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Credentials", "true")
+		origin := c.Request.Header.Get("Origin")
+		
+		// 許可するオリジンのリスト（環境変数から取得することも可能）
+		allowedOrigins := []string{
+			"http://localhost:3000",  // Next.js 管理画面
+			"http://localhost:3001",  // Next.js デモアプリ  
+			"http://localhost:8080",  // API サーバー自身（Swagger UI用）
+		}
+		
+		// オリジンが許可リストに含まれているかチェック
+		allowed := false
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				allowed = true
+				break
+			}
+		}
+		
+		// 開発環境では全てのlocalhostオリジンを許可
+		if !allowed && origin != "" {
+			if len(origin) >= 17 && origin[:17] == "http://localhost:" {
+				allowed = true
+			} else if len(origin) >= 16 && origin[:16] == "http://127.0.0.1:" {
+				allowed = true
+			}
+		}
+		
+		// 許可されたオリジンの場合のみヘッダーを設定
+		if allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
+		
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
@@ -177,11 +208,17 @@ func CORSMiddleware() gin.HandlerFunc {
 // SecurityHeadersMiddleware セキュリティヘッダーミドルウェア
 func SecurityHeadersMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// APIレスポンスには最小限のセキュリティヘッダーのみ設定
+		// SPAでのCSP違反を避けるため、Content-Security-Policyは設定しない
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
-		c.Header("Content-Security-Policy", "default-src 'self'")
+		
+		// HTMLテンプレート（認証画面）の場合のみCSPを設定
+		if c.Request.URL.Path == "/oauth2/authorize" && c.Request.Method == "GET" {
+			c.Header("Content-Security-Policy", "default-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' data:;")
+		}
 		
 		c.Next()
 	}

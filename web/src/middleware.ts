@@ -6,11 +6,11 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // 認証が不要なパス
-  const publicPaths = ['/login', '/register', '/api/auth'];
+  const publicPaths = ['/login', '/api/auth'];
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
 
-  // 認証が必要なパス
-  const protectedPaths = ['/dashboard'];
+  // 認証が必要なパス（管理者専用）
+  const protectedPaths = ['/dashboard', '/register'];
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
 
   // 保護されたパスにアクセスしようとしていて、セッショントークンがない場合

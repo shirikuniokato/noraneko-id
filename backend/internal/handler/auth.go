@@ -116,6 +116,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	db.Save(&user)
 
 	// セッションクッキーの設定
+	// SameSite=Laxで異なるオリジンからの認証フローに対応
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("session_token", sessionToken, int(24*time.Hour.Seconds()), "/", "", false, true)
 
 	// レスポンス
@@ -244,6 +246,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		Update("revoked_at", now)
 
 	// クッキーの削除
+	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie("session_token", "", -1, "/", "", false, true)
 
 	c.JSON(http.StatusOK, gin.H{

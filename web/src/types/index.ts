@@ -21,6 +21,20 @@ export interface OAuthClient {
   redirect_uri: string;
   scopes: string[];
   grant_types: string[];
+  
+  // UI設定フィールド
+  logo_url?: string;
+  website?: string;
+  privacy_policy_url?: string;
+  terms_of_service_url?: string;
+  support_email?: string;
+  brand_color?: string;
+  consent_message?: string;
+  
+  // セキュリティ設定
+  require_consent: boolean;
+  trusted_client: boolean;
+  
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +71,19 @@ export interface CreateClientRequest {
   redirect_uri: string;
   scopes: string[];
   grant_types: string[];
+  
+  // UI設定フィールド
+  logo_url?: string;
+  website?: string;
+  privacy_policy_url?: string;
+  terms_of_service_url?: string;
+  support_email?: string;
+  brand_color?: string;
+  consent_message?: string;
+  
+  // セキュリティ設定
+  require_consent?: boolean;
+  trusted_client?: boolean;
 }
 
 export type CreateClientResponse = OAuthClient;

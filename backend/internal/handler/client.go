@@ -33,6 +33,19 @@ type CreateClientRequest struct {
 	RedirectURIs  []string `json:"redirect_uris" binding:"required,min=1"`
 	AllowedScopes []string `json:"allowed_scopes,omitempty"`
 	IsConfidential bool    `json:"is_confidential"`
+	
+	// UI設定フィールド
+	LogoURL          *string `json:"logo_url,omitempty"`
+	Website          *string `json:"website,omitempty"`
+	PrivacyPolicyURL *string `json:"privacy_policy_url,omitempty"`
+	TermsOfServiceURL *string `json:"terms_of_service_url,omitempty"`
+	SupportEmail     *string `json:"support_email,omitempty"`
+	BrandColor       *string `json:"brand_color,omitempty"`
+	ConsentMessage   *string `json:"consent_message,omitempty"`
+	
+	// セキュリティ設定
+	RequireConsent *bool `json:"require_consent,omitempty"`
+	TrustedClient  *bool `json:"trusted_client,omitempty"`
 }
 
 // UpdateClientRequest クライアント更新リクエストの構造体
@@ -42,6 +55,19 @@ type UpdateClientRequest struct {
 	RedirectURIs  []string `json:"redirect_uris,omitempty"`
 	AllowedScopes []string `json:"allowed_scopes,omitempty"`
 	IsActive      *bool    `json:"is_active,omitempty"`
+	
+	// UI設定フィールド
+	LogoURL          *string `json:"logo_url,omitempty"`
+	Website          *string `json:"website,omitempty"`
+	PrivacyPolicyURL *string `json:"privacy_policy_url,omitempty"`
+	TermsOfServiceURL *string `json:"terms_of_service_url,omitempty"`
+	SupportEmail     *string `json:"support_email,omitempty"`
+	BrandColor       *string `json:"brand_color,omitempty"`
+	ConsentMessage   *string `json:"consent_message,omitempty"`
+	
+	// セキュリティ設定
+	RequireConsent *bool `json:"require_consent,omitempty"`
+	TrustedClient  *bool `json:"trusted_client,omitempty"`
 }
 
 // ClientResponse クライアントレスポンスの構造体
@@ -55,6 +81,20 @@ type ClientResponse struct {
 	AllowedScopes []string  `json:"allowed_scopes"`
 	IsConfidential bool     `json:"is_confidential"`
 	IsActive      bool      `json:"is_active"`
+	
+	// UI設定フィールド
+	LogoURL          *string `json:"logo_url,omitempty"`
+	Website          *string `json:"website,omitempty"`
+	PrivacyPolicyURL *string `json:"privacy_policy_url,omitempty"`
+	TermsOfServiceURL *string `json:"terms_of_service_url,omitempty"`
+	SupportEmail     *string `json:"support_email,omitempty"`
+	BrandColor       *string `json:"brand_color,omitempty"`
+	ConsentMessage   *string `json:"consent_message,omitempty"`
+	
+	// セキュリティ設定
+	RequireConsent bool `json:"require_consent"`
+	TrustedClient  bool `json:"trusted_client"`
+	
 	CreatedAt     string    `json:"created_at"`
 	UpdatedAt     string    `json:"updated_at"`
 }
@@ -117,10 +157,37 @@ func (h *ClientHandler) CreateClient(c *gin.Context) {
 		IsConfidential:   req.IsConfidential,
 		IsActive:         true,
 		CreatedBy:        &createdBy,
+		
+		// UI設定フィールド
+		LogoURL:          req.LogoURL,
+		Website:          req.Website,
+		PrivacyPolicyURL: req.PrivacyPolicyURL,
+		TermsOfServiceURL: req.TermsOfServiceURL,
+		SupportEmail:     req.SupportEmail,
+		BrandColor:       req.BrandColor,
+		ConsentMessage:   req.ConsentMessage,
+		
+		// セキュリティ設定（デフォルト値設定）
+		RequireConsent: true,
+		TrustedClient:  false,
 	}
 
 	if req.Description == "" {
 		client.Description = nil
+	}
+	
+	// セキュリティ設定の適用
+	if req.RequireConsent != nil {
+		client.RequireConsent = *req.RequireConsent
+	}
+	if req.TrustedClient != nil {
+		client.TrustedClient = *req.TrustedClient
+	}
+	
+	// デフォルトブランドカラーの設定
+	if client.BrandColor == nil {
+		defaultColor := "#4f46e5"
+		client.BrandColor = &defaultColor
 	}
 
 	db := database.GetDB()
@@ -143,6 +210,20 @@ func (h *ClientHandler) CreateClient(c *gin.Context) {
 		AllowedScopes: client.AllowedScopes,
 		IsConfidential: client.IsConfidential,
 		IsActive:      client.IsActive,
+		
+		// UI設定フィールド
+		LogoURL:          client.LogoURL,
+		Website:          client.Website,
+		PrivacyPolicyURL: client.PrivacyPolicyURL,
+		TermsOfServiceURL: client.TermsOfServiceURL,
+		SupportEmail:     client.SupportEmail,
+		BrandColor:       client.BrandColor,
+		ConsentMessage:   client.ConsentMessage,
+		
+		// セキュリティ設定
+		RequireConsent: client.RequireConsent,
+		TrustedClient:  client.TrustedClient,
+		
 		CreatedAt:     client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     client.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -206,6 +287,20 @@ func (h *ClientHandler) GetClients(c *gin.Context) {
 			AllowedScopes: client.AllowedScopes,
 			IsConfidential: client.IsConfidential,
 			IsActive:      client.IsActive,
+			
+			// UI設定フィールド
+			LogoURL:          client.LogoURL,
+			Website:          client.Website,
+			PrivacyPolicyURL: client.PrivacyPolicyURL,
+			TermsOfServiceURL: client.TermsOfServiceURL,
+			SupportEmail:     client.SupportEmail,
+			BrandColor:       client.BrandColor,
+			ConsentMessage:   client.ConsentMessage,
+			
+			// セキュリティ設定
+			RequireConsent: client.RequireConsent,
+			TrustedClient:  client.TrustedClient,
+			
 			CreatedAt:     client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 			UpdatedAt:     client.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		})
@@ -243,6 +338,20 @@ func (h *ClientHandler) GetClient(c *gin.Context) {
 		AllowedScopes: client.AllowedScopes,
 		IsConfidential: client.IsConfidential,
 		IsActive:      client.IsActive,
+		
+		// UI設定フィールド
+		LogoURL:          client.LogoURL,
+		Website:          client.Website,
+		PrivacyPolicyURL: client.PrivacyPolicyURL,
+		TermsOfServiceURL: client.TermsOfServiceURL,
+		SupportEmail:     client.SupportEmail,
+		BrandColor:       client.BrandColor,
+		ConsentMessage:   client.ConsentMessage,
+		
+		// セキュリティ設定
+		RequireConsent: client.RequireConsent,
+		TrustedClient:  client.TrustedClient,
+		
 		CreatedAt:     client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     client.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -299,6 +408,37 @@ func (h *ClientHandler) UpdateClient(c *gin.Context) {
 	if req.IsActive != nil {
 		client.IsActive = *req.IsActive
 	}
+	
+	// UI設定フィールドの更新
+	if req.LogoURL != nil {
+		client.LogoURL = req.LogoURL
+	}
+	if req.Website != nil {
+		client.Website = req.Website
+	}
+	if req.PrivacyPolicyURL != nil {
+		client.PrivacyPolicyURL = req.PrivacyPolicyURL
+	}
+	if req.TermsOfServiceURL != nil {
+		client.TermsOfServiceURL = req.TermsOfServiceURL
+	}
+	if req.SupportEmail != nil {
+		client.SupportEmail = req.SupportEmail
+	}
+	if req.BrandColor != nil {
+		client.BrandColor = req.BrandColor
+	}
+	if req.ConsentMessage != nil {
+		client.ConsentMessage = req.ConsentMessage
+	}
+	
+	// セキュリティ設定の更新
+	if req.RequireConsent != nil {
+		client.RequireConsent = *req.RequireConsent
+	}
+	if req.TrustedClient != nil {
+		client.TrustedClient = *req.TrustedClient
+	}
 
 	if err := db.Save(&client).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -317,6 +457,20 @@ func (h *ClientHandler) UpdateClient(c *gin.Context) {
 		AllowedScopes: client.AllowedScopes,
 		IsConfidential: client.IsConfidential,
 		IsActive:      client.IsActive,
+		
+		// UI設定フィールド
+		LogoURL:          client.LogoURL,
+		Website:          client.Website,
+		PrivacyPolicyURL: client.PrivacyPolicyURL,
+		TermsOfServiceURL: client.TermsOfServiceURL,
+		SupportEmail:     client.SupportEmail,
+		BrandColor:       client.BrandColor,
+		ConsentMessage:   client.ConsentMessage,
+		
+		// セキュリティ設定
+		RequireConsent: client.RequireConsent,
+		TrustedClient:  client.TrustedClient,
+		
 		CreatedAt:     client.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     client.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}

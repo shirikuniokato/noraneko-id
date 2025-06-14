@@ -54,7 +54,7 @@ class OAuth2TestHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
 if __name__ == "__main__":
-    PORT = 8081
+    PORT = 8082
     
     print(f"🚀 OAuth2テストクライアントサーバーを起動中...")
     print(f"📍 URL: http://localhost:{PORT}")

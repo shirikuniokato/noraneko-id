@@ -11,7 +11,7 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "termsOfService": "https://noraneko-id.com/terms",
         "contact": {
-            "name": "noraneko-id Support",
+            "name": "Noraneko ID Support",
             "url": "https://noraneko-id.com/support",
             "email": "support@noraneko-id.com"
         },
@@ -323,6 +323,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/oauth2/client-info/{client_id}": {
+            "get": {
+                "description": "OAuth2クライアントの公開情報を取得します（認可画面用）",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "クライアント情報取得",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "クライアントID",
+                        "name": "client_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "クライアント情報",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "クライアントが見つかりません",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/oauth2/revoke": {
             "post": {
                 "description": "アクセストークンまたはリフレッシュトークンを無効化します。",
@@ -467,16 +504,29 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "brand_color": {
+                    "type": "string"
+                },
+                "consent_message": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
                 "is_confidential": {
                     "type": "boolean"
                 },
+                "logo_url": {
+                    "description": "UI設定フィールド",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
+                },
+                "privacy_policy_url": {
+                    "type": "string"
                 },
                 "redirect_uris": {
                     "type": "array",
@@ -484,6 +534,22 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "require_consent": {
+                    "description": "セキュリティ設定",
+                    "type": "boolean"
+                },
+                "support_email": {
+                    "type": "string"
+                },
+                "terms_of_service_url": {
+                    "type": "string"
+                },
+                "trusted_client": {
+                    "type": "boolean"
+                },
+                "website": {
+                    "type": "string"
                 }
             }
         },
@@ -593,7 +659,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "noraneko-id API",
+	Title:            "Noraneko ID API",
 	Description:      "プライベートサービス開発者向けIDaaS（Identity as a Service）API",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

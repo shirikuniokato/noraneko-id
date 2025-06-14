@@ -6,19 +6,39 @@ definitions:
         items:
           type: string
         type: array
+      brand_color:
+        type: string
+      consent_message:
+        type: string
       description:
         type: string
       is_confidential:
         type: boolean
+      logo_url:
+        description: UI設定フィールド
+        type: string
       name:
         maxLength: 255
         minLength: 1
+        type: string
+      privacy_policy_url:
         type: string
       redirect_uris:
         items:
           type: string
         minItems: 1
         type: array
+      require_consent:
+        description: セキュリティ設定
+        type: boolean
+      support_email:
+        type: string
+      terms_of_service_url:
+        type: string
+      trusted_client:
+        type: boolean
+      website:
+        type: string
     required:
     - name
     - redirect_uris
@@ -88,14 +108,14 @@ host: localhost:8080
 info:
   contact:
     email: support@noraneko-id.com
-    name: noraneko-id Support
+    name: Noraneko ID Support
     url: https://noraneko-id.com/support
   description: プライベートサービス開発者向けIDaaS（Identity as a Service）API
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
   termsOfService: https://noraneko-id.com/terms
-  title: noraneko-id API
+  title: Noraneko ID API
   version: "1.0"
 paths:
   /admin/clients:
@@ -296,6 +316,31 @@ paths:
             additionalProperties: true
             type: object
       summary: OAuth2認可エンドポイント
+      tags:
+      - OAuth2
+  /oauth2/client-info/{client_id}:
+    get:
+      description: OAuth2クライアントの公開情報を取得します（認可画面用）
+      parameters:
+      - description: クライアントID
+        in: path
+        name: client_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: クライアント情報
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: クライアントが見つかりません
+          schema:
+            additionalProperties: true
+            type: object
+      summary: クライアント情報取得
       tags:
       - OAuth2
   /oauth2/revoke:

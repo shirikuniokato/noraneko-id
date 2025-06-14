@@ -1,0 +1,68 @@
+{
+  "name": "@noraneko/id-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "JavaScript SDK for noraneko-id OAuth2 authentication",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "oauth2",
+    "authentication",
+    "authorization",
+    "pkce",
+    "jwt",
+    "noraneko-id"
+  ],
+  "author": "noraneko-id",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noraneko-id/noraneko-id.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/noraneko-id/noraneko-id#readme",
+  "bugs": {
+    "url": "https://github.com/noraneko-id/noraneko-id/issues"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.6",
+    "@types/jest": "^29.5.12",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "rollup": "^4.12.0",
+    "ts-jest": "^29.1.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

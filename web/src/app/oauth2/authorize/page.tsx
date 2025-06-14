@@ -207,7 +207,7 @@ function OAuth2AuthorizeForm() {
             </svg>
             <h2 className="mt-4 text-2xl font-bold text-gray-900">アプリケーションの認可</h2>
             <p className="mt-2 text-sm text-gray-600">
-              <strong>{clientInfo.name}</strong> があなたのnoraneko-idアカウントへのアクセスを求めています
+              <strong>{clientInfo.name}</strong> があなたのNoraneko IDアカウントへのアクセスを求めています
             </p>
           </div>
 
@@ -293,7 +293,7 @@ function OAuth2AuthorizeForm() {
         {/* フッター */}
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            Powered by <strong>noraneko-id</strong>
+            Powered by <strong>Noraneko ID</strong>
           </p>
         </div>
       </div>
