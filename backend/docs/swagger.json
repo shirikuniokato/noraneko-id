@@ -1,0 +1,582 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "プライベートサービス開発者向けIDaaS（Identity as a Service）API",
+        "title": "noraneko-id API",
+        "termsOfService": "https://noraneko-id.com/terms",
+        "contact": {
+            "name": "noraneko-id Support",
+            "url": "https://noraneko-id.com/support",
+            "email": "support@noraneko-id.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/admin/clients": {
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "新しいOAuth2クライアントを作成します（管理者専用）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "管理者"
+                ],
+                "summary": "OAuth2クライアント作成",
+                "parameters": [
+                    {
+                        "description": "クライアント作成情報",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CreateClientRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "クライアント作成成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "リクエストエラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "認証エラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "管理者権限が必要",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "description": "メールアドレスとパスワードでユーザーログインを行います",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "認証"
+                ],
+                "summary": "ユーザーログイン",
+                "parameters": [
+                    {
+                        "description": "ログイン情報",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ログイン成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "リクエストエラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "認証エラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "description": "現在のセッションを無効化してログアウトします",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "認証"
+                ],
+                "summary": "ユーザーログアウト",
+                "responses": {
+                    "200": {
+                        "description": "ログアウト成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/profile": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "description": "ログイン中のユーザーのプロフィール情報を取得します",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "認証"
+                ],
+                "summary": "ユーザープロフィール取得",
+                "responses": {
+                    "200": {
+                        "description": "ユーザープロフィール",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "認証エラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "ユーザーが見つからない",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "新しいユーザーアカウントを作成します",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "認証"
+                ],
+                "summary": "ユーザー新規登録",
+                "parameters": [
+                    {
+                        "description": "ユーザー登録情報",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "ユーザー作成成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "リクエストエラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "ユーザー既に存在",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth2/authorize": {
+            "get": {
+                "description": "OAuth2認可コードフローの認可エンドポイントです。PKCEをサポートしています。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "OAuth2認可エンドポイント",
+                "parameters": [
+                    {
+                        "enum": [
+                            "code"
+                        ],
+                        "type": "string",
+                        "description": "レスポンスタイプ",
+                        "name": "response_type",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "クライアントID",
+                        "name": "client_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "リダイレクトURI",
+                        "name": "redirect_uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "openid",
+                        "description": "スコープ",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "状態パラメータ",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "PKCEコードチャレンジ",
+                        "name": "code_challenge",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "S256"
+                        ],
+                        "type": "string",
+                        "default": "S256",
+                        "description": "PKCEチャレンジメソッド",
+                        "name": "code_challenge_method",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to authorization page or callback URL"
+                    },
+                    "400": {
+                        "description": "リクエストエラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth2/revoke": {
+            "post": {
+                "description": "アクセストークンまたはリフレッシュトークンを無効化します。",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "OAuth2トークン無効化エンドポイント",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "無効化するトークン",
+                        "name": "token",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "無効化成功",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "リクエストエラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth2/token": {
+            "post": {
+                "description": "認可コードやリフレッシュトークンを使ってアクセストークンを取得します。",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "OAuth2トークンエンドポイント",
+                "parameters": [
+                    {
+                        "description": "トークンリクエスト",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/oauth2.TokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "アクセストークンレスポンス",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "リクエストエラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "クライアント認証エラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/oauth2/userinfo": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "アクセストークンを使ってユーザー情報を取得します。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2"
+                ],
+                "summary": "OAuth2ユーザー情報エンドポイント",
+                "responses": {
+                    "200": {
+                        "description": "ユーザー情報",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "認証エラー",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "ユーザーが見つからない",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "handler.CreateClientRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "redirect_uris"
+            ],
+            "properties": {
+                "allowed_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_confidential": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                },
+                "redirect_uris": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handler.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "description": "メールアドレス",
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "password": {
+                    "description": "パスワード（6文字以上）",
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123"
+                }
+            }
+        },
+        "handler.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "display_name": {
+                    "description": "表示名（省略可能）",
+                    "type": "string",
+                    "example": "Test User"
+                },
+                "email": {
+                    "description": "メールアドレス",
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "password": {
+                    "description": "パスワード（6文字以上）",
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123"
+                },
+                "username": {
+                    "description": "ユーザー名（3-50文字）",
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 3,
+                    "example": "testuser"
+                }
+            }
+        },
+        "oauth2.TokenRequest": {
+            "type": "object",
+            "required": [
+                "client_id",
+                "grant_type"
+            ],
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "code_verifier": {
+                    "type": "string"
+                },
+                "grant_type": {
+                    "type": "string"
+                },
+                "redirect_uri": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Bearer Token認証。「Bearer 」の後にアクセストークンを指定してください。",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        },
+        "SessionAuth": {
+            "description": "セッション認証。session_tokenクッキーを使用します。",
+            "type": "apiKey",
+            "name": "Cookie",
+            "in": "header"
+        }
+    }
+}

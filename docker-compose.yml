@@ -13,7 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U noraneko -d noraneko_id"]
       interval: 30s
@@ -23,7 +22,7 @@ services:
 
   # 将来的にサーバーもコンテナ化する場合
   # server:
-  #   build: .
+  #   build: ./backend
   #   container_name: noraneko-server
   #   ports:
   #     - "8080:8080"

@@ -1,0 +1,398 @@
+basePath: /
+definitions:
+  handler.CreateClientRequest:
+    properties:
+      allowed_scopes:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      is_confidential:
+        type: boolean
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
+      redirect_uris:
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - name
+    - redirect_uris
+    type: object
+  handler.LoginRequest:
+    properties:
+      email:
+        description: メールアドレス
+        example: user@example.com
+        type: string
+      password:
+        description: パスワード（6文字以上）
+        example: password123
+        minLength: 6
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handler.RegisterRequest:
+    properties:
+      display_name:
+        description: 表示名（省略可能）
+        example: Test User
+        type: string
+      email:
+        description: メールアドレス
+        example: user@example.com
+        type: string
+      password:
+        description: パスワード（6文字以上）
+        example: password123
+        minLength: 6
+        type: string
+      username:
+        description: ユーザー名（3-50文字）
+        example: testuser
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  oauth2.TokenRequest:
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      code:
+        type: string
+      code_verifier:
+        type: string
+      grant_type:
+        type: string
+      redirect_uri:
+        type: string
+      refresh_token:
+        type: string
+    required:
+    - client_id
+    - grant_type
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@noraneko-id.com
+    name: noraneko-id Support
+    url: https://noraneko-id.com/support
+  description: プライベートサービス開発者向けIDaaS（Identity as a Service）API
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://noraneko-id.com/terms
+  title: noraneko-id API
+  version: "1.0"
+paths:
+  /admin/clients:
+    post:
+      consumes:
+      - application/json
+      description: 新しいOAuth2クライアントを作成します（管理者専用）
+      parameters:
+      - description: クライアント作成情報
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateClientRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: クライアント作成成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: リクエストエラー
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 認証エラー
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: 管理者権限が必要
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: OAuth2クライアント作成
+      tags:
+      - 管理者
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: メールアドレスとパスワードでユーザーログインを行います
+      parameters:
+      - description: ログイン情報
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ログイン成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: リクエストエラー
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 認証エラー
+          schema:
+            additionalProperties: true
+            type: object
+      summary: ユーザーログイン
+      tags:
+      - 認証
+  /auth/logout:
+    post:
+      description: 現在のセッションを無効化してログアウトします
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ログアウト成功
+          schema:
+            additionalProperties: true
+            type: object
+      summary: ユーザーログアウト
+      tags:
+      - 認証
+  /auth/profile:
+    get:
+      description: ログイン中のユーザーのプロフィール情報を取得します
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ユーザープロフィール
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 認証エラー
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: ユーザーが見つからない
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - SessionAuth: []
+      summary: ユーザープロフィール取得
+      tags:
+      - 認証
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 新しいユーザーアカウントを作成します
+      parameters:
+      - description: ユーザー登録情報
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ユーザー作成成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: リクエストエラー
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: ユーザー既に存在
+          schema:
+            additionalProperties: true
+            type: object
+      summary: ユーザー新規登録
+      tags:
+      - 認証
+  /oauth2/authorize:
+    get:
+      description: OAuth2認可コードフローの認可エンドポイントです。PKCEをサポートしています。
+      parameters:
+      - description: レスポンスタイプ
+        enum:
+        - code
+        in: query
+        name: response_type
+        required: true
+        type: string
+      - description: クライアントID
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: リダイレクトURI
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - default: openid
+        description: スコープ
+        in: query
+        name: scope
+        type: string
+      - description: 状態パラメータ
+        in: query
+        name: state
+        type: string
+      - description: PKCEコードチャレンジ
+        in: query
+        name: code_challenge
+        type: string
+      - default: S256
+        description: PKCEチャレンジメソッド
+        enum:
+        - S256
+        in: query
+        name: code_challenge_method
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect to authorization page or callback URL
+        "400":
+          description: リクエストエラー
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OAuth2認可エンドポイント
+      tags:
+      - OAuth2
+  /oauth2/revoke:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: アクセストークンまたはリフレッシュトークンを無効化します。
+      parameters:
+      - description: 無効化するトークン
+        in: formData
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 無効化成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: リクエストエラー
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OAuth2トークン無効化エンドポイント
+      tags:
+      - OAuth2
+  /oauth2/token:
+    post:
+      consumes:
+      - application/json
+      description: 認可コードやリフレッシュトークンを使ってアクセストークンを取得します。
+      parameters:
+      - description: トークンリクエスト
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/oauth2.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: アクセストークンレスポンス
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: リクエストエラー
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: クライアント認証エラー
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OAuth2トークンエンドポイント
+      tags:
+      - OAuth2
+  /oauth2/userinfo:
+    get:
+      description: アクセストークンを使ってユーザー情報を取得します。
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ユーザー情報
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 認証エラー
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: ユーザーが見つからない
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: OAuth2ユーザー情報エンドポイント
+      tags:
+      - OAuth2
+securityDefinitions:
+  BearerAuth:
+    description: Bearer Token認証。「Bearer 」の後にアクセストークンを指定してください。
+    in: header
+    name: Authorization
+    type: apiKey
+  SessionAuth:
+    description: セッション認証。session_tokenクッキーを使用します。
+    in: header
+    name: Cookie
+    type: apiKey
+swagger: "2.0"

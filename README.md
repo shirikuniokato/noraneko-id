@@ -39,26 +39,204 @@ OAuth2（RFC準拠）をベースに、再利用性・柔軟性・拡張性を�
 
 ---
 
-## 主要機能（予定・実装中）
+## 実装済み機能
 
-- ユーザ登録／ログイン／パスワードリセット
-- OAuth2エンドポイント（/authorize, /token, /userinfo, /revoke）
-- JWT/DB管理によるトークン発行・検証
-- クライアント（アプリ）登録・管理
-- 認可スコープ管理
-- 管理画面（ユーザ・アプリ・認可一覧、CRUD）
-- 1st party cookie/クライアントトークン管理
-- 管理者認証・権限管理
+### 🔐 認証・認可
+- ✅ ユーザー登録／ログイン／ログアウト
+- ✅ セッション管理（セキュアクッキー）
+- ✅ 管理者権限システム
+- ✅ パスワードハッシュ化（bcrypt）
+
+### 🛡️ OAuth2（RFC 6749準拠）
+- ✅ OAuth2エンドポイント（/authorize, /token, /userinfo, /revoke）
+- ✅ 認可コードフロー
+- ✅ PKCE（Proof Key for Code Exchange）サポート
+- ✅ JWT アクセストークン
+- ✅ リフレッシュトークン
+- ✅ スコープ管理
+
+### 🔧 管理機能
+- ✅ OAuth2クライアント管理（CRUD）
+- ✅ クライアントシークレット生成・再生成
+- ✅ 管理者専用エンドポイント
+
+### 📚 API仕様
+- ✅ OpenAPI/Swagger ドキュメント
+- ✅ 対話式API テストUI（Swagger UI）
+- ✅ 包括的なエラーハンドリング
+
+### 🏗️ 開発基盤
+- ✅ PostgreSQL データベース統合
+- ✅ Docker による開発環境
+- ✅ GORM による ORM
+- ✅ 構造化ログ出力
+- ✅ CORS対応
+
+## 開発予定機能
+
+- 📧 メール認証・パスワードリセット
+- 🖥️ 管理画面UI（Next.js）
+- 🔄 WebHook通知
+- 📊 使用状況分析
+- 🌐 多言語対応
 
 ---
+
+## プロジェクト構造
+
+```
+noraneko-id/
+├── backend/          # Go APIサーバー
+│   ├── cmd/server/   # メインアプリケーション
+│   ├── internal/     # 内部パッケージ
+│   │   ├── config/   # 設定管理
+│   │   ├── handler/  # HTTPハンドラー
+│   │   ├── middleware/ # ミドルウェア
+│   │   └── model/    # データモデル
+│   ├── pkg/          # 外部公開パッケージ
+│   │   ├── database/ # データベース接続
+│   │   ├── jwt/      # JWT処理
+│   │   └── oauth2/   # OAuth2ロジック
+│   └── docs/         # Swagger生成ファイル
+├── web/              # Next.js 管理画面
+├── docs/             # プロジェクトドキュメント
+├── scripts/          # ビルド・開発スクリプト
+└── docker-compose.yml # 開発環境
+```
+
+## クイックスタート
+
+### 1. 前提条件
+
+- Go 1.21以上
+- Node.js 18以上  
+- Docker & Docker Compose
+
+### 2. セットアップ
+
+```bash
+# リポジトリクローン
+git clone https://github.com/your-org/noraneko-id.git
+cd noraneko-id
+
+# 依存関係インストール
+cd backend && go mod download
+cd ../web && npm install
+
+# 環境変数設定
+cp backend/.env.example backend/.env
+# .envファイルを編集
+
+# データベース起動
+docker-compose up -d postgres
+```
+
+### 3. 開発サーバー起動
+
+```bash
+# 開発スクリプトで一括起動
+./scripts/dev.sh
+
+# または個別起動
+# バックエンド: http://localhost:8080
+cd backend && go run ./cmd/server
+
+# フロントエンド: http://localhost:3000
+cd web && npm run dev
+```
+
+### 4. API ドキュメント確認
+
+**Swagger UI**: http://localhost:8080/swagger/index.html
 
 ## アーキテクチャ概要
 
 ```plaintext
-[ユーザ/管理者]
-    ↓（Web, SPA, 管理画面）
-[Next.js (TypeScript)]
-    ↓（API通信）
-[Go APIサーバ (Gin) ]
-    ↓（ORM, SQL）
+[外部アプリケーション]
+    ↓ OAuth2
+[Go APIサーバー (Gin)]
+    ↓ GORM
 [PostgreSQL]
+
+[管理者]
+    ↓ セッション認証
+[Next.js 管理画面]
+    ↓ REST API
+[Go APIサーバー (Gin)]
+```
+
+## API エンドポイント
+
+### 認証
+- `POST /auth/register` - ユーザー登録
+- `POST /auth/login` - ログイン  
+- `POST /auth/logout` - ログアウト
+- `GET /auth/profile` - プロフィール取得
+
+### OAuth2
+- `GET /oauth2/authorize` - 認可エンドポイント
+- `POST /oauth2/token` - トークン取得
+- `GET /oauth2/userinfo` - ユーザー情報取得
+- `POST /oauth2/revoke` - トークン無効化
+
+### 管理者API
+- `POST /admin/clients` - クライアント作成
+- `GET /admin/clients` - クライアント一覧
+- `GET /admin/clients/{id}` - クライアント詳細
+- `PUT /admin/clients/{id}` - クライアント更新
+- `DELETE /admin/clients/{id}` - クライアント削除
+
+詳細は [API仕様書](./docs/API.md) または [Swagger UI](http://localhost:8080/swagger/index.html) を参照してください。
+
+## ドキュメント
+
+- 📋 [開発ガイド](./docs/DEVELOPMENT.md) - 環境構築とセットアップ
+- 🧪 [テストガイド](./docs/TESTING.md) - テスト実行方法
+- 📖 [API仕様書](./docs/API.md) - 詳細なAPI仕様
+- 🔄 [開発ワークフロー](./docs/WORKFLOW.md) - Git運用とCI/CD
+- 📝 [Swagger利用ガイド](./docs/SWAGGER.md) - OpenAPI仕様の使い方
+
+## OAuth2 フロー例
+
+### 認可コードフロー
+
+```bash
+# 1. 認可エンドポイントへリダイレクト
+GET /oauth2/authorize?client_id=myapp&response_type=code&redirect_uri=https://myapp.com/callback&scope=read&state=random123
+
+# 2. ユーザーがログイン・認可後、コールバック
+https://myapp.com/callback?code=AUTH_CODE&state=random123
+
+# 3. 認可コードをアクセストークンに交換
+POST /oauth2/token
+{
+  "grant_type": "authorization_code",
+  "code": "AUTH_CODE",
+  "client_id": "myapp",
+  "client_secret": "secret",
+  "redirect_uri": "https://myapp.com/callback"
+}
+
+# 4. アクセストークンでユーザー情報取得
+GET /oauth2/userinfo
+Authorization: Bearer ACCESS_TOKEN
+```
+
+## 開発状況
+
+現在、バックエンドAPIは **完全に実装済み** です。OAuth2の全エンドポイント、認証システム、管理機能が動作します。
+
+**次のマイルストーン:**
+- Next.js管理画面の実装
+- メール認証機能の追加
+- 包括的なテストスイートの作成
+
+## ライセンス
+
+MIT License - 詳細は [LICENSE](./LICENSE) ファイルを参照してください。
+
+## サポート
+
+- 🐛 バグ報告: [Issues](https://github.com/your-org/noraneko-id/issues)
+- 💡 機能要望: [Discussions](https://github.com/your-org/noraneko-id/discussions)
+- 📧 お問い合わせ: support@noraneko-id.com
