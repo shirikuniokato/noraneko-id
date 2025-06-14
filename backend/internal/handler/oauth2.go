@@ -82,17 +82,14 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 		return
 	}
 
-	// ユーザーの同意確認
-	approve := c.Query("approve")
-	if c.Request.Method == "POST" || approve == "true" {
-		// POST リクエストまたは approve=true の場合、認可コードを生成
+	// 信頼済みクライアントまたは同意不要クライアントの場合はスキップ
+	if client.TrustedClient || !client.RequireConsent {
 		authCode, err := h.oauth2Service.GenerateAuthorizationCode(userUUID, client, &req)
 		if err != nil {
 			h.handleAuthorizeError(c, &req, "server_error", err.Error())
 			return
 		}
 
-		// リダイレクトURIの構築
 		redirectURI, err := h.oauth2Service.BuildRedirectURI(req.RedirectURI, authCode.Code, req.State)
 		if err != nil {
 			h.handleAuthorizeError(c, &req, "server_error", err.Error())
@@ -103,9 +100,35 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 		return
 	}
 
-	// ユーザー同意画面にリダイレクト（フロントエンドアプリケーション）
-	frontendAuthURL := "http://localhost:3001/oauth2/authorize?" + c.Request.URL.RawQuery
-	c.Redirect(http.StatusFound, frontendAuthURL)
+	// POSTリクエストの場合は、ユーザーの同意結果を処理
+	if c.Request.Method == "POST" {
+		approve := c.PostForm("approve")
+		if approve == "true" {
+			// 同意の場合、認可コードを生成
+			authCode, err := h.oauth2Service.GenerateAuthorizationCode(userUUID, client, &req)
+			if err != nil {
+				h.handleAuthorizeError(c, &req, "server_error", err.Error())
+				return
+			}
+
+			// リダイレクトURIの構築
+			redirectURI, err := h.oauth2Service.BuildRedirectURI(req.RedirectURI, authCode.Code, req.State)
+			if err != nil {
+				h.handleAuthorizeError(c, &req, "server_error", err.Error())
+				return
+			}
+
+			c.Redirect(http.StatusFound, redirectURI)
+			return
+		} else {
+			// 拒否の場合、エラーレスポンス
+			h.handleAuthorizeError(c, &req, "access_denied", "ユーザーがアクセスを拒否しました")
+			return
+		}
+	}
+
+	// GETリクエストの場合、ユーザー同意画面を表示
+	h.showAuthorizePage(c, &req, client, userUUID)
 }
 
 // Token OAuth2 トークンエンドポイント POST /oauth2/token
@@ -357,6 +380,64 @@ func (h *OAuth2Handler) handleAuthorizeError(c *gin.Context, req *oauth2.Authori
 		"error":             errorCode,
 		"error_description": errorDescription,
 	})
+}
+
+// showAuthorizePage 認可画面を表示
+func (h *OAuth2Handler) showAuthorizePage(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient, userID uuid.UUID) {
+	// ユーザー情報を取得
+	var user model.User
+	if err := database.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+		h.handleAuthorizeError(c, req, "server_error", "ユーザー情報の取得に失敗しました")
+		return
+	}
+
+	// スコープの説明を生成
+	scopes := h.generateScopeDescriptions(req.Scope)
+
+	// クエリパラメータを取得（POSTフォームで送信するため）
+	queryParams := make(map[string]string)
+	for key, values := range c.Request.URL.Query() {
+		if len(values) > 0 {
+			queryParams[key] = values[0]
+		}
+	}
+
+	// テンプレートデータ
+	templateData := gin.H{
+		"Client":      client,
+		"User":        user,
+		"Scopes":      scopes,
+		"QueryParams": queryParams,
+	}
+
+	c.HTML(http.StatusOK, "oauth2/authorize.html", templateData)
+}
+
+// generateScopeDescriptions スコープの説明を生成
+func (h *OAuth2Handler) generateScopeDescriptions(scopeString string) []gin.H {
+	scopes := strings.Fields(scopeString)
+	descriptions := make([]gin.H, 0, len(scopes))
+
+	scopeDescMap := map[string]string{
+		"openid":  "あなたの基本的なプロフィール情報（ユーザーID）",
+		"profile": "あなたのプロフィール情報（ユーザー名、表示名）",
+		"email":   "あなたのメールアドレス",
+		"read":    "あなたの情報を読み取り",
+		"write":   "あなたの情報を更新",
+	}
+
+	for _, scope := range scopes {
+		description := scopeDescMap[scope]
+		if description == "" {
+			description = scope + "スコープ"
+		}
+		descriptions = append(descriptions, gin.H{
+			"Name":        scope,
+			"Description": description,
+		})
+	}
+
+	return descriptions
 }
 
 // GetClientInfo クライアント情報取得エンドポイント GET /oauth2/client-info/:client_id

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"html/template"
 	"log"
 	"net/http"
+	"strings"
 
 	"noraneko-id/internal/config"
 	"noraneko-id/internal/handler"
@@ -74,6 +76,26 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	// カスタムテンプレート関数
+	r.SetFuncMap(template.FuncMap{
+		"substr": func(s string, start, end int) string {
+			if start < 0 || start >= len(s) {
+				return ""
+			}
+			if end < 0 || end > len(s) {
+				end = len(s)
+			}
+			if start >= end {
+				return ""
+			}
+			return s[start:end]
+		},
+		"upper": strings.ToUpper,
+	})
+
+	// HTMLテンプレートの設定
+	r.LoadHTMLGlob("templates/**/*")
 
 	// ミドルウェアの設定
 	r.Use(middleware.SecurityHeadersMiddleware())

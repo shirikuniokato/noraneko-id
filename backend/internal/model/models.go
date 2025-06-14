@@ -37,8 +37,22 @@ type OAuthClient struct {
 	IsConfidential bool       `gorm:"default:true" json:"is_confidential"`
 	IsActive       bool       `gorm:"default:true" json:"is_active"`
 	CreatedBy      *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	
+	// UI設定フィールド
+	LogoURL          *string `json:"logo_url,omitempty"`
+	Website          *string `json:"website,omitempty"`
+	PrivacyPolicyURL *string `json:"privacy_policy_url,omitempty"`
+	TermsOfServiceURL *string `json:"terms_of_service_url,omitempty"`
+	SupportEmail     *string `json:"support_email,omitempty"`
+	BrandColor       *string `gorm:"default:'#4f46e5'" json:"brand_color,omitempty"`
+	ConsentMessage   *string `json:"consent_message,omitempty"`
+	
+	// セキュリティ設定
+	RequireConsent bool `gorm:"default:true" json:"require_consent"`
+	TrustedClient  bool `gorm:"default:false" json:"trusted_client"`
+	
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // OAuthAuthorizationCode OAuth2認可コードモデル

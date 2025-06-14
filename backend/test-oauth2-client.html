@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth2 テストクライアント</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        .container {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0.5rem 0;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f1f3f4;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 noraneko-id OAuth2 テストクライアント</h1>
+    
+    <div class="info">
+        <strong>📋 テスト手順:</strong><br>
+        1. まず管理画面（http://localhost:3001）でユーザー登録<br>
+        2. OAuth2クライアントを作成<br>
+        3. 下記の「クライアントID」を更新<br>
+        4. 「OAuth2認証開始」ボタンをクリック
+    </div>
+
+    <div class="container">
+        <h2>設定</h2>
+        <label>クライアントID:</label><br>
+        <input type="text" id="clientId" placeholder="管理画面で作成したクライアントID" style="width: 400px; padding: 8px; margin: 8px 0;">
+        <br>
+        <label>リダイレクトURI:</label><br>
+        <input type="text" id="redirectUri" value="http://localhost:8081/callback" style="width: 400px; padding: 8px; margin: 8px 0;">
+        <br>
+        <label>スコープ:</label><br>
+        <input type="text" id="scope" value="openid profile email" style="width: 400px; padding: 8px; margin: 8px 0;">
+    </div>
+
+    <div class="container">
+        <h2>OAuth2 フロー テスト</h2>
+        <button class="btn" onclick="startOAuth2()">🚀 OAuth2認証開始</button>
+        <button class="btn" onclick="clearResults()">🗑️ 結果クリア</button>
+        
+        <h3>結果:</h3>
+        <div id="results"></div>
+    </div>
+
+    <div class="container">
+        <h2>📖 使用方法</h2>
+        <h3>1. 管理画面でクライアント作成</h3>
+        <pre>
+名前: テストアプリ
+説明: OAuth2フローのテスト用アプリケーション
+リダイレクトURI: http://localhost:8081/callback
+スコープ: openid,profile,email
+グラントタイプ: authorization_code</pre>
+
+        <h3>2. 作成されたクライアントIDを上記フォームに入力</h3>
+        
+        <h3>3. 認証フローを開始</h3>
+        <p>「OAuth2認証開始」ボタンをクリックすると、Go側の認証画面が表示されます。</p>
+    </div>
+
+    <script>
+        // URLパラメータを解析
+        function getURLParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                code: params.get('code'),
+                state: params.get('state'),
+                error: params.get('error'),
+                error_description: params.get('error_description')
+            };
+        }
+
+        // ページ読み込み時に認可コードをチェック
+        window.onload = function() {
+            const params = getURLParams();
+            if (params.code) {
+                showResults('✅ 認可コード取得成功!', `
+                    <strong>認可コード:</strong> ${params.code}<br>
+                    <strong>State:</strong> ${params.state || 'なし'}<br>
+                    <em>※ 通常はここでバックエンドに認可コードを送信してアクセストークンを取得します</em>
+                `);
+            } else if (params.error) {
+                showResults('❌ 認証エラー', `
+                    <strong>エラー:</strong> ${params.error}<br>
+                    <strong>詳細:</strong> ${params.error_description || 'なし'}
+                `);
+            }
+        };
+
+        function startOAuth2() {
+            const clientId = document.getElementById('clientId').value;
+            const redirectUri = document.getElementById('redirectUri').value;
+            const scope = document.getElementById('scope').value;
+
+            if (!clientId) {
+                alert('クライアントIDを入力してください');
+                return;
+            }
+
+            // PKCE用のパラメータ生成（簡易版）
+            const state = generateRandomString(32);
+            const codeVerifier = generateRandomString(128);
+            const codeChallenge = btoa(codeVerifier).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+            // セッションストレージに保存（実際のアプリではより安全な方法を使用）
+            sessionStorage.setItem('oauth2_state', state);
+            sessionStorage.setItem('oauth2_code_verifier', codeVerifier);
+
+            // OAuth2認証エンドポイントにリダイレクト
+            const authUrl = new URL('http://localhost:8080/oauth2/authorize');
+            authUrl.searchParams.set('response_type', 'code');
+            authUrl.searchParams.set('client_id', clientId);
+            authUrl.searchParams.set('redirect_uri', redirectUri);
+            authUrl.searchParams.set('scope', scope);
+            authUrl.searchParams.set('state', state);
+            authUrl.searchParams.set('code_challenge', codeChallenge);
+            authUrl.searchParams.set('code_challenge_method', 'S256');
+
+            window.location.href = authUrl.toString();
+        }
+
+        function generateRandomString(length) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function showResults(title, content) {
+            document.getElementById('results').innerHTML = `
+                <div style="border: 1px solid #dee2e6; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+                    <h4>${title}</h4>
+                    <div>${content}</div>
+                </div>
+            `;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            // URLからパラメータもクリア
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    </script>
+</body>
+</html>
