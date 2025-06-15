@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 
-	"noraneko-id/internal/model"
-
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -44,20 +42,14 @@ func Connect(config DatabaseConfig) error {
 
 // AutoMigrate データベーステーブルの自動マイグレーション
 func AutoMigrate() error {
-	err := DB.AutoMigrate(
-		&model.User{},
-		&model.OAuthClient{},
-		&model.OAuthAuthorizationCode{},
-		&model.OAuthAccessToken{},
-		&model.OAuthRefreshToken{},
-		&model.OAuthScope{},
-		&model.UserSession{},
-		&model.AdminRole{},
-	)
-
-	if err != nil {
-		return fmt.Errorf("データベースマイグレーションに失敗しました: %v", err)
-	}
+	// Temporarily disable ALL auto-migration to avoid GORM conflicts
+	// All tables including UserAuthProvider have been migrated manually via SQL scripts
+	log.Println("スキップ中: GORM自動マイグレーション（全テーブル手動SQLマイグレーション使用中）")
+	
+	// No auto-migration performed - all done via manual SQL scripts
+	// This prevents GORM from trying to convert client_id types and causing conflicts
+	
+	// TODO: Re-enable selective GORM auto-migration after resolving foreign key conflicts
 
 	log.Println("データベースマイグレーションが完了しました")
 	return nil

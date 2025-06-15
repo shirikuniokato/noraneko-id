@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strings"
@@ -37,6 +38,7 @@ type AuthorizeRequest struct {
 	State                string `json:"state"`
 	CodeChallenge        string `json:"code_challenge"`
 	CodeChallengeMethod  string `json:"code_challenge_method"`
+	IdentityProvider     string `json:"identity_provider"` // SNS連携プロバイダー指定
 }
 
 // TokenRequest OAuth2 トークンリクエストの構造体
@@ -59,8 +61,21 @@ type TokenResponse struct {
 	Scope        string `json:"scope,omitempty"`
 }
 
+// RefreshTokenInfo リフレッシュトークンの情報を格納する構造体
+type RefreshTokenInfo struct {
+	RefreshToken *model.OAuthRefreshToken
+	Client       *model.OAuthClient
+	UserID       uuid.UUID
+	Scopes       []string
+}
+
 // ValidateAuthorizeRequest OAuth2 認可リクエストを検証
 func (s *OAuth2Service) ValidateAuthorizeRequest(req *AuthorizeRequest) (*model.OAuthClient, error) {
+	// データベースが利用できない場合のエラー
+	if s.db == nil {
+		return nil, fmt.Errorf("データベースが利用できません")
+	}
+	
 	// response_type の検証
 	if req.ResponseType != "code" {
 		return nil, fmt.Errorf("サポートされていない response_type です: %s", req.ResponseType)
@@ -70,17 +85,21 @@ func (s *OAuth2Service) ValidateAuthorizeRequest(req *AuthorizeRequest) (*model.
 	var client model.OAuthClient
 	err := s.db.Where("client_id = ? AND is_active = ?", req.ClientID, true).First(&client).Error
 	if err != nil {
+		// デバッグログを追加
+		var count int64
+		s.db.Model(&model.OAuthClient{}).Where("client_id = ?", req.ClientID).Count(&count)
+		fmt.Printf("Debug: client_id=%s, total_count=%d, db_error=%v\n", req.ClientID, count, err)
 		return nil, fmt.Errorf("クライアントが見つかりません")
 	}
 
 	// リダイレクトURIの検証
-	if !s.isValidRedirectURI(req.RedirectURI, client.RedirectURIs) {
+	if !s.isValidRedirectURI(req.RedirectURI, []string(client.RedirectURIs)) {
 		return nil, fmt.Errorf("無効な redirect_uri です")
 	}
 
 	// スコープの検証
 	requestedScopes := strings.Fields(req.Scope)
-	if !s.isValidScopes(requestedScopes, client.AllowedScopes) {
+	if !s.isValidScopes(requestedScopes, []string(client.AllowedScopes)) {
 		return nil, fmt.Errorf("無効なスコープが含まれています")
 	}
 
@@ -114,7 +133,7 @@ func (s *OAuth2Service) GenerateAuthorizationCode(userID uuid.UUID, client *mode
 		ClientID:              client.ID,
 		UserID:                userID,
 		RedirectURI:           req.RedirectURI,
-		Scopes:                scopes,
+		Scopes:                strings.Join(scopes, " "),
 		CodeChallenge:         &req.CodeChallenge,
 		CodeChallengeMethod:   &req.CodeChallengeMethod,
 		ExpiresAt:             time.Now().Add(10 * time.Minute), // 10分で有効期限切れ
@@ -135,11 +154,18 @@ func (s *OAuth2Service) GenerateAuthorizationCode(userID uuid.UUID, client *mode
 
 // ValidateTokenRequest OAuth2 トークンリクエストを検証
 func (s *OAuth2Service) ValidateTokenRequest(req *TokenRequest) (*model.OAuthAuthorizationCode, *model.OAuthClient, error) {
+	// データベースが利用できない場合のエラー
+	if s.db == nil {
+		return nil, nil, fmt.Errorf("データベースが利用できません")
+	}
+	
 	switch req.GrantType {
 	case "authorization_code":
 		return s.validateAuthorizationCodeGrant(req)
 	case "refresh_token":
-		return nil, nil, fmt.Errorf("refresh_token グラントは未実装です")
+		// リフレッシュトークンの場合は認可コードは不要なのでnilを返す
+		_, client, err := s.validateRefreshTokenGrant(req)
+		return nil, client, err
 	default:
 		return nil, nil, fmt.Errorf("サポートされていない grant_type です: %s", req.GrantType)
 	}
@@ -187,6 +213,61 @@ func (s *OAuth2Service) validateAuthorizationCodeGrant(req *TokenRequest) (*mode
 	}
 
 	return &authCode, &client, nil
+}
+
+// validateRefreshTokenGrant リフレッシュトークングラントを検証
+func (s *OAuth2Service) validateRefreshTokenGrant(req *TokenRequest) (*RefreshTokenInfo, *model.OAuthClient, error) {
+	if req.RefreshToken == "" {
+		return nil, nil, fmt.Errorf("refresh_token が必要です")
+	}
+
+	// リフレッシュトークンのハッシュ化
+	tokenHash := s.hashToken(req.RefreshToken)
+
+	// リフレッシュトークンの検索
+	var refreshToken model.OAuthRefreshToken
+	err := s.db.Where("token_hash = ? AND revoked_at IS NULL", tokenHash).First(&refreshToken).Error
+	if err != nil {
+		return nil, nil, fmt.Errorf("無効なリフレッシュトークンです")
+	}
+
+	// 有効期限の確認
+	if time.Now().After(refreshToken.ExpiresAt) {
+		return nil, nil, fmt.Errorf("リフレッシュトークンの有効期限が切れています")
+	}
+
+	// クライアントの検証
+	var client model.OAuthClient
+	err = s.db.Where("id = ? AND is_active = ?", refreshToken.ClientID, true).First(&client).Error
+	if err != nil {
+		return nil, nil, fmt.Errorf("クライアントが見つかりません")
+	}
+
+	// client_id の確認
+	if client.ClientID != req.ClientID {
+		return nil, nil, fmt.Errorf("client_id が一致しません")
+	}
+
+	refreshTokenInfo := &RefreshTokenInfo{
+		RefreshToken: &refreshToken,
+		Client:       &client,
+		UserID:       refreshToken.UserID,
+		Scopes:       strings.Fields(refreshToken.Scopes),
+	}
+
+	return refreshTokenInfo, &client, nil
+}
+
+// ValidateRefreshTokenGrant リフレッシュトークングラントの検証（パブリックメソッド）
+func (s *OAuth2Service) ValidateRefreshTokenGrant(req *TokenRequest) (*RefreshTokenInfo, *model.OAuthClient, error) {
+	return s.validateRefreshTokenGrant(req)
+}
+
+// RevokeRefreshToken リフレッシュトークンを無効化
+func (s *OAuth2Service) RevokeRefreshToken(refreshToken *model.OAuthRefreshToken) error {
+	now := time.Now()
+	refreshToken.RevokedAt = &now
+	return s.db.Save(refreshToken).Error
 }
 
 // MarkAuthorizationCodeAsUsed 認可コードを使用済みとしてマーク
@@ -283,4 +364,10 @@ func (s *OAuth2Service) BuildErrorRedirectURI(baseURI, errorCode, errorDescripti
 	u.RawQuery = q.Encode()
 
 	return u.String(), nil
+}
+
+// hashToken トークンをハッシュ化
+func (s *OAuth2Service) hashToken(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }

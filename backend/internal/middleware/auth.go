@@ -44,9 +44,9 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// ユーザー情報を取得
+		// ユーザー情報を取得（クライアント情報も一緒に）
 		var user model.User
-		err = db.Where("id = ?", session.UserID).First(&user).Error
+		err = db.Preload("Client").Where("id = ?", session.UserID).First(&user).Error
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "user_not_found",
@@ -69,6 +69,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		// ユーザー情報をコンテキストに設定
 		c.Set("user_id", user.ID)
 		c.Set("user", user)
+		c.Set("client_id", user.ClientID)
+		c.Set("client", user.Client)
 		c.Set("session_id", session.ID)
 
 		c.Next()
@@ -98,9 +100,9 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// ユーザー情報を取得
+		// ユーザー情報を取得（クライアント情報も一緒に）
 		var user model.User
-		err = db.Where("id = ?", session.UserID).First(&user).Error
+		err = db.Preload("Client").Where("id = ?", session.UserID).First(&user).Error
 		if err != nil {
 			c.Next()
 			return
@@ -115,6 +117,8 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 		// ユーザー情報をコンテキストに設定
 		c.Set("user_id", user.ID)
 		c.Set("user", user)
+		c.Set("client_id", user.ClientID)
+		c.Set("client", user.Client)
 		c.Set("session_id", session.ID)
 
 		c.Next()

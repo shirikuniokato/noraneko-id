@@ -4,16 +4,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"gorm.io/gorm"
+	"gorm.io/datatypes"
 )
 
 // User ユーザーモデル
 type User struct {
 	ID                       uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	Email                    string     `gorm:"uniqueIndex;not null" json:"email"`
-	PasswordHash             string     `gorm:"not null" json:"-"`
-	Username                 string     `gorm:"uniqueIndex;not null" json:"username"`
+	ClientID                 uuid.UUID  `gorm:"type:uuid;not null;index:idx_users_client_email,priority:1;index:idx_users_client_username,priority:1" json:"client_id"`
+	Email                    string     `gorm:"not null;index:idx_users_client_email,priority:2" json:"email"`
+	PasswordHash             *string    `gorm:"type:text" json:"-"` // nullable for SNS-only users
+	Username                 string     `gorm:"not null;index:idx_users_client_username,priority:2" json:"username"`
 	DisplayName              *string    `json:"display_name,omitempty"`
+	ProfileImageURL          *string    `json:"profile_image_url,omitempty"` // from SNS providers
 	EmailVerified            bool       `gorm:"default:false" json:"email_verified"`
 	EmailVerificationToken   *string    `gorm:"index" json:"-"`
 	EmailVerificationExpires *time.Time `json:"-"`
@@ -23,6 +27,9 @@ type User struct {
 	IsActive                 bool       `gorm:"default:true" json:"is_active"`
 	CreatedAt                time.Time  `json:"created_at"`
 	UpdatedAt                time.Time  `json:"updated_at"`
+	
+	// Relations
+	Client OAuthClient `gorm:"foreignKey:ClientID" json:"-"`
 }
 
 // OAuthClient OAuth2クライアントアプリケーションモデル
@@ -32,8 +39,8 @@ type OAuthClient struct {
 	ClientSecretHash string   `gorm:"not null" json:"-"`
 	Name           string     `gorm:"not null" json:"name"`
 	Description    *string    `json:"description,omitempty"`
-	RedirectURIs   []string   `gorm:"type:text[]" json:"redirect_uris"`
-	AllowedScopes  []string   `gorm:"type:text[];default:'{}'" json:"allowed_scopes"`
+	RedirectURIs   pq.StringArray `gorm:"type:text[]" json:"redirect_uris"`
+	AllowedScopes  pq.StringArray `gorm:"type:text[];default:'{}'" json:"allowed_scopes"`
 	IsConfidential bool       `gorm:"default:true" json:"is_confidential"`
 	IsActive       bool       `gorm:"default:true" json:"is_active"`
 	CreatedBy      *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
@@ -67,7 +74,7 @@ type OAuthAuthorizationCode struct {
 	ClientID              uuid.UUID `gorm:"type:uuid;not null" json:"client_id"`
 	UserID                uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
 	RedirectURI           string    `gorm:"not null" json:"redirect_uri"`
-	Scopes                []string  `gorm:"type:text[];default:'{}'" json:"scopes"`
+	Scopes                string  `gorm:"type:text" json:"scopes"`
 	CodeChallenge         *string   `json:"code_challenge,omitempty"`
 	CodeChallengeMethod   *string   `json:"code_challenge_method,omitempty"`
 	ExpiresAt             time.Time `gorm:"not null;index" json:"expires_at"`
@@ -81,7 +88,7 @@ type OAuthAccessToken struct {
 	TokenHash string     `gorm:"uniqueIndex;not null" json:"-"`
 	ClientID  uuid.UUID  `gorm:"type:uuid;not null" json:"client_id"`
 	UserID    uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
-	Scopes    []string   `gorm:"type:text[];default:'{}'" json:"scopes"`
+	Scopes    string   `gorm:"type:text" json:"scopes"`
 	ExpiresAt time.Time  `gorm:"not null;index" json:"expires_at"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -94,7 +101,7 @@ type OAuthRefreshToken struct {
 	AccessTokenID uuid.UUID  `gorm:"type:uuid;not null" json:"access_token_id"`
 	ClientID      uuid.UUID  `gorm:"type:uuid;not null" json:"client_id"`
 	UserID        uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
-	Scopes        []string   `gorm:"type:text[];default:'{}'" json:"scopes"`
+	Scopes        string   `gorm:"type:text" json:"scopes"`
 	ExpiresAt     time.Time  `gorm:"not null;index" json:"expires_at"`
 	RevokedAt     *time.Time `json:"revoked_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -119,6 +126,45 @@ type UserSession struct {
 	IPAddress        *string    `gorm:"type:inet" json:"ip_address,omitempty"`
 	RevokedAt        *time.Time `json:"revoked_at,omitempty"`
 	CreatedAt        time.Time  `json:"created_at"`
+}
+
+// 認証プロバイダータイプの定数
+const (
+	ProviderTypePassword = "password" // パスワード認証
+	ProviderTypeGoogle   = "google"   // Google OAuth2
+	ProviderTypeGitHub   = "github"   // GitHub OAuth2
+	ProviderTypeLINE     = "line"     // LINE Login
+	ProviderTypeApple    = "apple"    // Sign in with Apple
+	ProviderTypeTwitter  = "twitter"  // Twitter OAuth
+)
+
+// GetSupportedProviders サポートされている認証プロバイダー一覧を取得
+func GetSupportedProviders() []string {
+	return []string{
+		ProviderTypePassword,
+		ProviderTypeGoogle,
+		ProviderTypeGitHub,
+		ProviderTypeLINE,
+		ProviderTypeApple,
+		ProviderTypeTwitter,
+	}
+}
+
+// UserAuthProvider ユーザー認証プロバイダーモデル（SNS連携用）
+type UserAuthProvider struct {
+	ID             uuid.UUID              `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	UserID         uuid.UUID              `gorm:"type:uuid;not null;index:idx_user_auth_providers_user_provider,priority:1" json:"user_id"`
+	ProviderType   string                 `gorm:"not null;index:idx_user_auth_providers_user_provider,priority:2;index:idx_user_auth_providers_provider_id,priority:1" json:"provider_type"` // ProviderType定数を使用
+	ProviderUserID *string                `gorm:"index:idx_user_auth_providers_provider_id,priority:2" json:"provider_user_id,omitempty"` // 外部プロバイダーのユーザーID
+	ProviderEmail  *string                `json:"provider_email,omitempty"` // プロバイダーからのメールアドレス
+	ProviderData   datatypes.JSON         `gorm:"type:jsonb" json:"provider_data,omitempty"` // 追加プロバイダーデータ（アバター、表示名等）
+	IsVerified     bool                   `gorm:"default:false" json:"is_verified"`
+	LastUsedAt     *time.Time             `json:"last_used_at,omitempty"`
+	CreatedAt      time.Time              `json:"created_at"`
+	UpdatedAt      time.Time              `json:"updated_at"`
+	
+	// Relations
+	User User `gorm:"foreignKey:UserID" json:"-"`
 }
 
 // AdminRole 管理者権限モデル
@@ -178,6 +224,13 @@ func (s *OAuthScope) BeforeCreate(tx *gorm.DB) error {
 func (s *UserSession) BeforeCreate(tx *gorm.DB) error {
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New()
+	}
+	return nil
+}
+
+func (p *UserAuthProvider) BeforeCreate(tx *gorm.DB) error {
+	if p.ID == uuid.Nil {
+		p.ID = uuid.New()
 	}
 	return nil
 }

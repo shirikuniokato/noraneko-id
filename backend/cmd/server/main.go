@@ -95,7 +95,11 @@ func main() {
 	})
 
 	// HTMLテンプレートの設定
-	r.LoadHTMLGlob("templates/**/*")
+	r.LoadHTMLFiles(
+		"templates/auth/login.html",
+		"templates/auth/register.html",
+		"templates/oauth2/authorize.html",
+	)
 
 	// ミドルウェアの設定
 	r.Use(middleware.SecurityHeadersMiddleware())
@@ -125,7 +129,12 @@ func main() {
 		auth.POST("/login", authHandler.Login)
 		auth.POST("/logout", authHandler.Logout)
 		auth.GET("/profile", middleware.AuthMiddleware(), authHandler.Profile)
+		auth.GET("/providers", authHandler.GetSupportedProviders)
 	}
+	
+	// 認証ページ（HTML）
+	r.GET("/login", authHandler.LoginPage)
+	r.GET("/register", authHandler.RegisterPage)
 
 	// OAuth2エンドポイント
 	oauth := r.Group("/oauth2")

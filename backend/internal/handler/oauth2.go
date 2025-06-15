@@ -3,8 +3,9 @@ package handler
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
+	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 // OAuth2Handler OAuth2 エンドポイントのハンドラー
@@ -37,7 +37,7 @@ func NewOAuth2Handler(cfg *config.Config) *OAuth2Handler {
 
 // Authorize OAuth2 認可エンドポイント GET /oauth2/authorize
 // @Summary OAuth2認可エンドポイント
-// @Description OAuth2認可コードフローの認可エンドポイントです。PKCEをサポートしています。
+// @Description OAuth2認可コードフローの認可エンドポイントです。PKCEとSNS連携プロバイダーをサポートしています。
 // @Tags OAuth2
 // @Produce json
 // @Param response_type query string true "レスポンスタイプ" Enums(code)
@@ -47,13 +47,28 @@ func NewOAuth2Handler(cfg *config.Config) *OAuth2Handler {
 // @Param state query string false "状態パラメータ"
 // @Param code_challenge query string false "PKCEコードチャレンジ"
 // @Param code_challenge_method query string false "PKCEチャレンジメソッド" Enums(S256) default(S256)
-// @Success 302 "Redirect to authorization page or callback URL"
+// @Param identity_provider query string false "SNS連携プロバイダー" Enums(google,github,line,apple,twitter)
+// @Success 302 "Redirect to authorization page, SNS provider, or callback URL"
 // @Failure 400 {object} map[string]interface{} "リクエストエラー"
 // @Router /oauth2/authorize [get]
 func (h *OAuth2Handler) Authorize(c *gin.Context) {
+	if c.Request.Method == "GET" {
+		h.handleAuthorizeGET(c)
+	} else if c.Request.Method == "POST" {
+		h.handleAuthorizePOST(c)
+	} else {
+		c.JSON(http.StatusMethodNotAllowed, gin.H{
+			"error": "method_not_allowed",
+			"message": "認可エンドポイントはGETとPOSTのみサポートしています",
+		})
+	}
+}
+
+// handleAuthorizeGET 認可リクエストの処理（同意画面表示）
+func (h *OAuth2Handler) handleAuthorizeGET(c *gin.Context) {
 	var req oauth2.AuthorizeRequest
 	
-	// クエリパラメータから値を取得
+	// GETパラメータから値を取得
 	req.ResponseType = c.Query("response_type")
 	req.ClientID = c.Query("client_id")
 	req.RedirectURI = c.Query("redirect_uri")
@@ -61,11 +76,20 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 	req.State = c.Query("state")
 	req.CodeChallenge = c.Query("code_challenge")
 	req.CodeChallengeMethod = c.DefaultQuery("code_challenge_method", "S256")
+	req.IdentityProvider = c.Query("identity_provider")
 
 	// リクエストの検証
+	log.Printf("Authorization request: ClientID=%s, RedirectURI=%s, ResponseType=%s, IdentityProvider=%s", req.ClientID, req.RedirectURI, req.ResponseType, req.IdentityProvider)
 	client, err := h.oauth2Service.ValidateAuthorizeRequest(&req)
 	if err != nil {
+		log.Printf("Authorization validation failed: %v", err)
 		h.handleAuthorizeError(c, &req, "invalid_request", err.Error())
+		return
+	}
+
+	// SNS連携プロバイダーが指定されている場合はSNS認証フローにリダイレクト
+	if req.IdentityProvider != "" {
+		h.handleSNSProviderFlow(c, &req, client)
 		return
 	}
 
@@ -73,7 +97,7 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {
 		// ユーザーが未認証の場合、ログインページにリダイレクト
-		loginURL := "/login?redirect_uri=" + c.Request.URL.String()
+		loginURL := "/login?redirect_uri=" + url.QueryEscape(c.Request.URL.String())
 		c.Redirect(http.StatusFound, loginURL)
 		return
 	}
@@ -81,6 +105,15 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 	userUUID, ok := userID.(uuid.UUID)
 	if !ok {
 		h.handleAuthorizeError(c, &req, "server_error", "ユーザーIDの取得に失敗しました")
+		return
+	}
+
+	// マルチテナント検証: ユーザーがこのクライアントに属しているかチェック
+	var userRecord model.User
+	db := database.GetDB()
+	if err := db.Where("id = ? AND client_id = ? AND is_active = ?", userUUID, client.ID, true).First(&userRecord).Error; err != nil {
+		log.Printf("Multi-tenant validation failed: user %v does not belong to client %v", userUUID, client.ID)
+		h.handleAuthorizeError(c, &req, "access_denied", "ユーザーがこのクライアントに属していません")
 		return
 	}
 
@@ -102,35 +135,79 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 		return
 	}
 
-	// POSTリクエストの場合は、ユーザーの同意結果を処理
-	if c.Request.Method == "POST" {
-		approve := c.PostForm("approve")
-		if approve == "true" {
-			// 同意の場合、認可コードを生成
-			authCode, err := h.oauth2Service.GenerateAuthorizationCode(userUUID, client, &req)
-			if err != nil {
-				h.handleAuthorizeError(c, &req, "server_error", err.Error())
-				return
-			}
+	// ユーザー同意画面を表示
+	h.showAuthorizePage(c, &req, client, userUUID)
+}
 
-			// リダイレクトURIの構築
-			redirectURI, err := h.oauth2Service.BuildRedirectURI(req.RedirectURI, authCode.Code, req.State)
-			if err != nil {
-				h.handleAuthorizeError(c, &req, "server_error", err.Error())
-				return
-			}
+// handleAuthorizePOST 同意画面からのフォーム送信処理
+func (h *OAuth2Handler) handleAuthorizePOST(c *gin.Context) {
+	var req oauth2.AuthorizeRequest
+	
+	// POSTフォームデータから値を取得
+	req.ResponseType = c.PostForm("response_type")
+	req.ClientID = c.PostForm("client_id")
+	req.RedirectURI = c.PostForm("redirect_uri")
+	req.Scope = c.DefaultPostForm("scope", "openid")
+	req.State = c.PostForm("state")
+	req.CodeChallenge = c.PostForm("code_challenge")
+	req.CodeChallengeMethod = c.DefaultPostForm("code_challenge_method", "S256")
+	req.IdentityProvider = c.PostForm("identity_provider")
 
-			c.Redirect(http.StatusFound, redirectURI)
-			return
-		} else {
-			// 拒否の場合、エラーレスポンス
-			h.handleAuthorizeError(c, &req, "access_denied", "ユーザーがアクセスを拒否しました")
-			return
-		}
+	// リクエストの検証
+	log.Printf("Authorization POST request: ClientID=%s, RedirectURI=%s, ResponseType=%s", req.ClientID, req.RedirectURI, req.ResponseType)
+	client, err := h.oauth2Service.ValidateAuthorizeRequest(&req)
+	if err != nil {
+		log.Printf("Authorization validation failed: %v", err)
+		h.handleAuthorizeError(c, &req, "invalid_request", err.Error())
+		return
 	}
 
-	// GETリクエストの場合、ユーザー同意画面を表示
-	h.showAuthorizePage(c, &req, client, userUUID)
+	// ユーザー認証の確認
+	userID, exists := c.Get("user_id")
+	if !exists {
+		h.handleAuthorizeError(c, &req, "access_denied", "ユーザー認証が必要です")
+		return
+	}
+
+	userUUID, ok := userID.(uuid.UUID)
+	if !ok {
+		h.handleAuthorizeError(c, &req, "server_error", "ユーザーIDの取得に失敗しました")
+		return
+	}
+
+	// マルチテナント検証: ユーザーがこのクライアントに属しているかチェック
+	var userRecord model.User
+	db := database.GetDB()
+	if err := db.Where("id = ? AND client_id = ? AND is_active = ?", userUUID, client.ID, true).First(&userRecord).Error; err != nil {
+		log.Printf("Multi-tenant validation failed in POST: user %v does not belong to client %v", userUUID, client.ID)
+		h.handleAuthorizeError(c, &req, "access_denied", "ユーザーがこのクライアントに属していません")
+		return
+	}
+
+	// ユーザーの同意結果を処理
+	approve := c.PostForm("approve")
+	if approve == "true" {
+		// 同意の場合、認可コードを生成
+		authCode, err := h.oauth2Service.GenerateAuthorizationCode(userUUID, client, &req)
+		if err != nil {
+			h.handleAuthorizeError(c, &req, "server_error", err.Error())
+			return
+		}
+
+		// リダイレクトURIの構築
+		redirectURI, err := h.oauth2Service.BuildRedirectURI(req.RedirectURI, authCode.Code, req.State)
+		if err != nil {
+			h.handleAuthorizeError(c, &req, "server_error", err.Error())
+			return
+		}
+
+		c.Redirect(http.StatusFound, redirectURI)
+		return
+	} else {
+		// 拒否の場合、エラーレスポンス
+		h.handleAuthorizeError(c, &req, "access_denied", "ユーザーがアクセスを拒否しました")
+		return
+	}
 }
 
 // Token OAuth2 トークンエンドポイント POST /oauth2/token
@@ -146,16 +223,49 @@ func (h *OAuth2Handler) Authorize(c *gin.Context) {
 // @Router /oauth2/token [post]
 func (h *OAuth2Handler) Token(c *gin.Context) {
 	var req oauth2.TokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":             "invalid_request",
-			"error_description": "リクエストの形式が正しくありません",
-		})
-		return
+	
+	// OAuth2仕様に従い、application/x-www-form-urlencodedとJSONの両方をサポート
+	contentType := c.GetHeader("Content-Type")
+	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		// フォームデータから取得
+		req.GrantType = c.PostForm("grant_type")
+		req.Code = c.PostForm("code")
+		req.RedirectURI = c.PostForm("redirect_uri")
+		req.ClientID = c.PostForm("client_id")
+		req.ClientSecret = c.PostForm("client_secret")
+		req.CodeVerifier = c.PostForm("code_verifier")
+		req.RefreshToken = c.PostForm("refresh_token")
+	} else {
+		// JSONから取得
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":             "invalid_request",
+				"error_description": "リクエストの形式が正しくありません",
+			})
+			return
+		}
 	}
+	
+	// デバッグログ
+	log.Printf("Token request: GrantType=%s, Code=%s, ClientID=%s, RedirectURI=%s", req.GrantType, req.Code, req.ClientID, req.RedirectURI)
 
+	switch req.GrantType {
+	case "authorization_code":
+		h.handleAuthorizationCodeGrant(c, &req)
+	case "refresh_token":
+		h.handleRefreshTokenGrant(c, &req)
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":             "unsupported_grant_type",
+			"error_description": "サポートされていないグラントタイプです: " + req.GrantType,
+		})
+	}
+}
+
+// handleAuthorizationCodeGrant Authorization Code グラントを処理
+func (h *OAuth2Handler) handleAuthorizationCodeGrant(c *gin.Context, req *oauth2.TokenRequest) {
 	// リクエストの検証
-	authCode, client, err := h.oauth2Service.ValidateTokenRequest(&req)
+	authCode, client, err := h.oauth2Service.ValidateTokenRequest(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":             "invalid_grant",
@@ -176,10 +286,11 @@ func (h *OAuth2Handler) Token(c *gin.Context) {
 	}
 
 	// アクセストークンの生成
+	scopes := strings.Fields(authCode.Scopes)
 	accessToken, err := h.jwtService.GenerateAccessToken(
 		authCode.UserID,
 		authCode.ClientID,
-		authCode.Scopes,
+		scopes,
 		h.config.OAuth2.AccessTokenExpirationHours,
 	)
 	if err != nil {
@@ -244,7 +355,105 @@ func (h *OAuth2Handler) Token(c *gin.Context) {
 		TokenType:    "Bearer",
 		ExpiresIn:    h.config.OAuth2.AccessTokenExpirationHours * 3600,
 		RefreshToken: refreshToken,
-		Scope:        strings.Join(authCode.Scopes, " "),
+		Scope:        authCode.Scopes,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// handleRefreshTokenGrant Refresh Token グラントを処理
+func (h *OAuth2Handler) handleRefreshTokenGrant(c *gin.Context, req *oauth2.TokenRequest) {
+	// リフレッシュトークンの検証
+	refreshTokenInfo, client, err := h.oauth2Service.ValidateRefreshTokenGrant(req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":             "invalid_grant",
+			"error_description": err.Error(),
+		})
+		return
+	}
+
+	// クライアント認証（機密クライアントの場合）
+	if client.IsConfidential {
+		if !h.validateClientSecret(client.ClientSecretHash, req.ClientSecret) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":             "invalid_client",
+				"error_description": "クライアント認証に失敗しました",
+			})
+			return
+		}
+	}
+
+	// 古いリフレッシュトークンを無効化（セキュリティのため）
+	if err := h.oauth2Service.RevokeRefreshToken(refreshTokenInfo.RefreshToken); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":             "server_error",
+			"error_description": "リフレッシュトークンの無効化に失敗しました",
+		})
+		return
+	}
+
+	// 新しいアクセストークンの生成
+	accessToken, err := h.jwtService.GenerateAccessToken(
+		refreshTokenInfo.UserID,
+		client.ID,
+		refreshTokenInfo.Scopes,
+		h.config.OAuth2.AccessTokenExpirationHours,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":             "server_error",
+			"error_description": "アクセストークンの生成に失敗しました",
+		})
+		return
+	}
+
+	// 新しいリフレッシュトークンの生成（トークンローテーション）
+	newRefreshToken := h.jwtService.GenerateRefreshToken()
+
+	// トークンをデータベースに保存
+	now := time.Now()
+	accessTokenRecord := &model.OAuthAccessToken{
+		TokenHash: h.hashToken(accessToken),
+		ClientID:  client.ID,
+		UserID:    refreshTokenInfo.UserID,
+		Scopes:    strings.Join(refreshTokenInfo.Scopes, " "),
+		ExpiresAt: now.Add(time.Hour * time.Duration(h.config.OAuth2.AccessTokenExpirationHours)),
+	}
+
+	newRefreshTokenRecord := &model.OAuthRefreshToken{
+		TokenHash: h.hashToken(newRefreshToken),
+		ClientID:  client.ID,
+		UserID:    refreshTokenInfo.UserID,
+		Scopes:    strings.Join(refreshTokenInfo.Scopes, " "),
+		ExpiresAt: now.Add(time.Hour * 24 * time.Duration(h.config.OAuth2.RefreshTokenExpirationDays)),
+	}
+
+	db := database.GetDB()
+	if err := db.Create(accessTokenRecord).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":             "server_error",
+			"error_description": "アクセストークンの保存に失敗しました",
+		})
+		return
+	}
+
+	newRefreshTokenRecord.AccessTokenID = accessTokenRecord.ID
+	if err := db.Create(newRefreshTokenRecord).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":             "server_error",
+			"error_description": "リフレッシュトークンの保存に失敗しました",
+		})
+		return
+	}
+
+	// レスポンスの生成
+	response := oauth2.TokenResponse{
+		AccessToken:  accessToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    h.config.OAuth2.AccessTokenExpirationHours * 3600,
+		RefreshToken: newRefreshToken,
+		Scope:        strings.Join(refreshTokenInfo.Scopes, " "),
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -413,7 +622,7 @@ func (h *OAuth2Handler) showAuthorizePage(c *gin.Context, req *oauth2.AuthorizeR
 		"QueryParams": queryParams,
 	}
 
-	c.HTML(http.StatusOK, "oauth2/authorize.html", templateData)
+	c.HTML(http.StatusOK, "authorize.html", templateData)
 }
 
 // generateScopeDescriptions スコープの説明を生成
@@ -496,4 +705,92 @@ func (h *OAuth2Handler) validateClientSecret(hashedSecret, providedSecret string
 func (h *OAuth2Handler) hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+// handleSNSProviderFlow SNS連携プロバイダーフロー処理
+func (h *OAuth2Handler) handleSNSProviderFlow(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient) {
+	// プロバイダーの有効性をチェック
+	if !h.isValidSNSProvider(req.IdentityProvider) {
+		h.handleAuthorizeError(c, req, "invalid_request", "サポートされていないプロバイダーです: "+req.IdentityProvider)
+		return
+	}
+
+	// プロバイダーが利用可能かチェック
+	if !h.isProviderAvailable(req.IdentityProvider) {
+		h.handleAuthorizeError(c, req, "unsupported_provider", req.IdentityProvider+"プロバイダーは将来実装予定です")
+		return
+	}
+
+	// 将来実装: プロバイダー別の認証フロー
+	switch req.IdentityProvider {
+	case model.ProviderTypeGoogle:
+		h.initiateGoogleAuth(c, req, client)
+	case model.ProviderTypeGitHub:
+		h.initiateGitHubAuth(c, req, client)
+	case model.ProviderTypeLINE:
+		h.initiateLINEAuth(c, req, client)
+	case model.ProviderTypeApple:
+		h.initiateAppleAuth(c, req, client)
+	case model.ProviderTypeTwitter:
+		h.initiateTwitterAuth(c, req, client)
+	default:
+		h.handleAuthorizeError(c, req, "unsupported_provider", "未対応のプロバイダーです: "+req.IdentityProvider)
+	}
+}
+
+// isValidSNSProvider 有効なSNSプロバイダーかどうかをチェック
+func (h *OAuth2Handler) isValidSNSProvider(provider string) bool {
+	validProviders := []string{
+		model.ProviderTypeGoogle,
+		model.ProviderTypeGitHub,
+		model.ProviderTypeLINE,
+		model.ProviderTypeApple,
+		model.ProviderTypeTwitter,
+	}
+
+	for _, validProvider := range validProviders {
+		if provider == validProvider {
+			return true
+		}
+	}
+	return false
+}
+
+// isProviderAvailable プロバイダーが利用可能かどうかをチェック
+func (h *OAuth2Handler) isProviderAvailable(provider string) bool {
+	switch provider {
+	case model.ProviderTypeGoogle, model.ProviderTypeGitHub, model.ProviderTypeLINE:
+		return false // 将来実装予定
+	case model.ProviderTypeApple, model.ProviderTypeTwitter:
+		return false // 将来実装予定
+	default:
+		return false
+	}
+}
+
+// 将来実装予定: プロバイダー別認証開始メソッド
+
+func (h *OAuth2Handler) initiateGoogleAuth(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient) {
+	// Google OAuth2認証フローの実装（将来）
+	h.handleAuthorizeError(c, req, "not_implemented", "Googleプロバイダーは将来実装予定です")
+}
+
+func (h *OAuth2Handler) initiateGitHubAuth(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient) {
+	// GitHub OAuth2認証フローの実装（将来）
+	h.handleAuthorizeError(c, req, "not_implemented", "GitHubプロバイダーは将来実装予定です")
+}
+
+func (h *OAuth2Handler) initiateLINEAuth(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient) {
+	// LINE Login認証フローの実装（将来）
+	h.handleAuthorizeError(c, req, "not_implemented", "LINEプロバイダーは将来実装予定です")
+}
+
+func (h *OAuth2Handler) initiateAppleAuth(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient) {
+	// Sign in with Apple認証フローの実装（将来）
+	h.handleAuthorizeError(c, req, "not_implemented", "Appleプロバイダーは将来実装予定です")
+}
+
+func (h *OAuth2Handler) initiateTwitterAuth(c *gin.Context, req *oauth2.AuthorizeRequest, client *model.OAuthClient) {
+	// Twitter OAuth認証フローの実装（将来）
+	h.handleAuthorizeError(c, req, "not_implemented", "Twitterプロバイダーは将来実装予定です")
 }
