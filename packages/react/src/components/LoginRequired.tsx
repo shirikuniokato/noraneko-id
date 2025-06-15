@@ -95,10 +95,13 @@ export function LoginRequired({
   // 未認証の場合はログインプロンプトを表示
   const handleLogin = () => {
     const scopes = loginOptions.scopes || ['openid', 'profile'];
-    login({
-      scopes,
-      additionalParams: loginOptions.additionalParams
-    });
+    const authOptions: any = { scopes };
+    
+    if (loginOptions.additionalParams) {
+      authOptions.additionalParams = loginOptions.additionalParams;
+    }
+    
+    login(authOptions);
   };
 
   const containerStyle: React.CSSProperties = {

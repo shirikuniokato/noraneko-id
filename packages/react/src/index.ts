@@ -57,6 +57,7 @@ export type {
   WithNoranekoIDProps,
   ComponentWithNoranekoID,
   UseNoranekoIDOptions,
+  EnhancedLogoutOptions,
 } from './types';
 
 // Re-export SDK types for convenience
@@ -76,14 +77,8 @@ export type {
   ErrorDetails,
 } from '@noraneko/id-sdk';
 
-// Middleware utilities (for Next.js App Router)
-export type {
-  AuthMiddlewareConfig,
-  AuthMiddlewareOptions,
-  SessionData,
-  ProtectedRouteOptions,
-  WithAuthOptions,
-} from './middleware/types';
+// Next.js specific utilities
+export * as nextjs from './nextjs';
 
 // Re-export SDK errors
 export {

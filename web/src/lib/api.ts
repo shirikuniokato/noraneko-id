@@ -1,8 +1,5 @@
 import { 
-  User, 
   OAuthClient, 
-  LoginRequest, 
-  RegisterRequest, 
   CreateClientRequest, 
   CreateClientResponse
 } from '@/types';
@@ -23,7 +20,7 @@ class ApiClient {
           'Content-Type': 'application/json',
           ...options.headers,
         },
-        credentials: 'include', // セッションクッキーを含める
+        credentials: 'include', // OAuth2トークンクッキーを含める
       });
 
       const data = await response.json();
@@ -39,32 +36,6 @@ class ApiClient {
     }
   }
 
-  // 認証関連
-  auth = {
-    login: async (data: LoginRequest) => {
-      return this.request<{ user: User; message: string }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-
-    register: async (data: RegisterRequest) => {
-      return this.request<{ user: User; message: string }>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    },
-
-    logout: async () => {
-      return this.request<{ message: string }>('/auth/logout', {
-        method: 'POST',
-      });
-    },
-
-    profile: async () => {
-      return this.request<{ user: User }>('/auth/profile');
-    },
-  };
 
   // OAuth2クライアント管理
   oauth2 = {

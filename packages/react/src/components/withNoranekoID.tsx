@@ -5,19 +5,13 @@
 
 import React from 'react';
 import { useNoranekoID } from '../hooks/useNoranekoID';
-import type { NoranekoIDState } from '../types';
+import type { UseNoranekoIDResult } from '../types';
 
 /**
  * HOCによって注入されるProps
  */
 export interface WithNoranekoIDProps {
-  noranekoID: NoranekoIDState & {
-    login: (options?: any) => void;
-    logout: (options?: any) => void;
-    getAccessToken: () => Promise<string | null>;
-    refreshTokens: () => Promise<void>;
-    refreshUser: () => Promise<void>;
-  };
+  noranekoID: UseNoranekoIDResult;
 }
 
 /**
@@ -221,10 +215,13 @@ export function withAuthRequired<P extends object = {}>(
     React.useEffect(() => {
       if (!noranekoIDData.isAuthenticated && !noranekoIDData.isLoading) {
         const scopes = loginOptions.scopes || ['openid', 'profile', ...requiredScopes];
-        noranekoIDData.login({
-          scopes,
-          additionalParams: loginOptions.additionalParams
-        });
+        const authOptions: any = { scopes };
+        
+        if (loginOptions.additionalParams) {
+          authOptions.additionalParams = loginOptions.additionalParams;
+        }
+        
+        noranekoIDData.login(authOptions);
       }
     }, [noranekoIDData.isAuthenticated, noranekoIDData.isLoading]);
 

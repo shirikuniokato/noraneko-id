@@ -78,3 +78,23 @@ The system follows a 3-tier architecture:
 ## Language and Documentation
 
 All documentation and code comments are in Japanese, as this targets Japanese developers and services.
+
+## TODO List (2025-01-15更新)
+
+### 高優先度
+- [ ] IDaaS UI改善 - 認証画面のUX向上とレスポンシブ対応
+
+### 中優先度
+- [ ] レート制限ミドルウェアの実装 - 認証・OAuth2・管理者エンドポイント別の制限設定
+- [ ] クライアントアプリ用の雛形作成 - OAuth2クライアント実装のサンプルテンプレート
+- [ ] Javascript-SDKのリポジトリ分割 - SDKを独立したリポジトリとして管理
+- [ ] SNS連携の導入 - Google、GitHub、LINE等のソーシャルログイン実装
+
+### 低優先度
+- [ ] ログ出力の改善 - 構造化ログ、セキュリティイベントログ、デバッグ情報の追加
+- [ ] テストスイートの拡張 - マルチテナント機能、SNS連携基盤、新APIエンドポイントのテスト追加
+- [ ] URL検証ロジックの強化 - リダイレクトURIの厳密な検証（スキーム、ホスト、パス検証）
+- [ ] エラーハンドリングの標準化 - 統一されたエラーレスポンス形式とエラーコード体系化
+- [ ] フロントエンド実装 - Next.js管理画面とデモアプリの実装
+- [ ] 本番環境対応 - Docker化、CI/CD、監視、バックアップ設定
+- [ ] 管理アプリに開発用ドキュメントを公開 - API仕様書、実装ガイドの統合

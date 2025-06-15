@@ -37,11 +37,9 @@ type LoginRequest struct {
 
 // RegisterRequest ユーザー登録リクエストの構造体
 type RegisterRequest struct {
-	Email       string `json:"email" binding:"required,email" example:"user@example.com"` // メールアドレス
-	Password    string `json:"password" binding:"required,min=6" example:"password123"` // パスワード（6文字以上）
-	Username    string `json:"username" binding:"required,min=3,max=50" example:"testuser"` // ユーザー名（3-50文字）
-	DisplayName string `json:"display_name,omitempty" example:"Test User"` // 表示名（省略可能）
-	ClientID    string `json:"client_id" binding:"required" example:"demo-client"` // クライアントID（マルチテナント対応）
+	Email    string `json:"email" binding:"required,email" example:"user@example.com"` // メールアドレス
+	Password string `json:"password" binding:"required,min=6" example:"password123"` // パスワード（6文字以上）
+	ClientID string `json:"client_id" binding:"required" example:"demo-client"` // クライアントID（マルチテナント対応）
 }
 
 // Login ユーザーログイン POST /auth/login
@@ -69,9 +67,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		req.ClientID = c.PostForm("client_id")
 		if req.Email == "" || req.Password == "" || req.ClientID == "" {
 			redirectURI := c.PostForm("redirect_uri")
+			// TODO: 業界標準に合わせてstate tokenに暗号化することを検討
+			// 現在は開発段階のためURLパラメータ直接渡しを継続
 			loginURL := "/login?error=" + url.QueryEscape("メールアドレス、パスワード、クライアントIDを入力してください")
 			if redirectURI != "" {
 				loginURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
 			}
 			c.Redirect(http.StatusFound, loginURL)
 			return
@@ -98,6 +101,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			if redirectURI != "" {
 				loginURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
 			}
+			if req.ClientID != "" {
+				loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
 			c.Redirect(http.StatusFound, loginURL)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -117,6 +123,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			if redirectURI != "" {
 				loginURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
 			}
+			if req.ClientID != "" {
+				loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
 			c.Redirect(http.StatusFound, loginURL)
 		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -135,6 +144,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			if redirectURI != "" {
 				loginURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
 			}
+			if req.ClientID != "" {
+				loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
 			c.Redirect(http.StatusFound, loginURL)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -150,6 +162,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			loginURL := "/login?error=" + url.QueryEscape("メールアドレスまたはパスワードが正しくありません")
 			if redirectURI != "" {
 				loginURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
 			}
 			c.Redirect(http.StatusFound, loginURL)
 		} else {
@@ -216,7 +231,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 				"client_id":     client.ClientID,
 				"email":         user.Email,
 				"username":      user.Username,
-				"display_name":  user.DisplayName,
+				"display_name":  h.getSafeDisplayName(&user),
 				"email_verified": user.EmailVerified,
 			},
 		})
@@ -236,13 +251,38 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Router /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid_request",
-			"message": "リクエストの形式が正しくありません",
-			"details": err.Error(),
-		})
-		return
+	
+	// Content-Typeでリクエスト形式を判定
+	contentType := c.GetHeader("Content-Type")
+	isFormRequest := contentType == "application/x-www-form-urlencoded"
+	
+	if isFormRequest {
+		// HTMLフォームからのリクエスト
+		req.Email = c.PostForm("email")
+		req.Password = c.PostForm("password")
+		req.ClientID = c.PostForm("client_id")
+		if req.Email == "" || req.Password == "" || req.ClientID == "" {
+			redirectURI := c.PostForm("redirect_uri")
+			registerURL := "/register?error=" + url.QueryEscape("必要な項目をすべて入力してください")
+			if redirectURI != "" {
+				registerURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				registerURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
+			c.Redirect(http.StatusFound, registerURL)
+			return
+		}
+	} else {
+		// JSONリクエスト
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_request",
+				"message": "リクエストの形式が正しくありません",
+				"details": err.Error(),
+			})
+			return
+		}
 	}
 
 	db := database.GetDB()
@@ -250,39 +290,66 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// クライアントの検索と検証
 	var client model.OAuthClient
 	if err := db.Where("client_id = ? AND is_active = ?", req.ClientID, true).First(&client).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid_client",
-			"message": "無効なクライアントIDです",
-		})
+		if isFormRequest {
+			redirectURI := c.PostForm("redirect_uri")
+			registerURL := "/register?error=" + url.QueryEscape("無効なクライアントIDです")
+			if redirectURI != "" {
+				registerURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			c.Redirect(http.StatusFound, registerURL)
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid_client",
+				"message": "無効なクライアントIDです",
+			})
+		}
 		return
 	}
 
 	// メールアドレスの重複チェック（クライアントスコープ内）
 	var existingUser model.User
 	if err := db.Where("client_id = ? AND email = ?", client.ID, req.Email).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":   "email_already_exists",
-			"message": "このメールアドレスは既に使用されています",
-		})
+		if isFormRequest {
+			redirectURI := c.PostForm("redirect_uri")
+			registerURL := "/register?error=" + url.QueryEscape("このメールアドレスは既に使用されています")
+			if redirectURI != "" {
+				registerURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				registerURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
+			c.Redirect(http.StatusFound, registerURL)
+		} else {
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "email_already_exists",
+				"message": "このメールアドレスは既に使用されています",
+			})
+		}
 		return
 	}
 
-	// ユーザー名の重複チェック（クライアントスコープ内）
-	if err := db.Where("client_id = ? AND username = ?", client.ID, req.Username).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{
-			"error":   "username_already_exists",
-			"message": "このユーザー名は既に使用されています",
-		})
-		return
-	}
+	// ユーザー名の自動生成（システム内部識別子）
+	generatedUsername := h.generateUsername()
 
 	// パスワードのハッシュ化
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "password_hash_failed",
-			"message": "パスワードの処理に失敗しました",
-		})
+		if isFormRequest {
+			redirectURI := c.PostForm("redirect_uri")
+			registerURL := "/register?error=" + url.QueryEscape("パスワードの処理に失敗しました")
+			if redirectURI != "" {
+				registerURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				registerURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
+			c.Redirect(http.StatusFound, registerURL)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "password_hash_failed",
+				"message": "パスワードの処理に失敗しました",
+			})
+		}
 		return
 	}
 
@@ -292,20 +359,28 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		ClientID:     client.ID,
 		Email:        req.Email,
 		PasswordHash: &hashedPasswordStr,
-		Username:     req.Username,
-		DisplayName:  &req.DisplayName,
+		Username:     generatedUsername,
+		DisplayName:  nil, // 表示名は登録後に設定
 		IsActive:     true,
 	}
 
-	if req.DisplayName == "" {
-		user.DisplayName = nil
-	}
-
 	if err := db.Create(user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "user_creation_failed",
-			"message": "ユーザーの作成に失敗しました",
-		})
+		if isFormRequest {
+			redirectURI := c.PostForm("redirect_uri")
+			registerURL := "/register?error=" + url.QueryEscape("ユーザーの作成に失敗しました")
+			if redirectURI != "" {
+				registerURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				registerURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
+			c.Redirect(http.StatusFound, registerURL)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "user_creation_failed",
+				"message": "ユーザーの作成に失敗しました",
+			})
+		}
 		return
 	}
 
@@ -318,25 +393,53 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := db.Create(provider).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "provider_creation_failed",
-			"message": "認証プロバイダーの作成に失敗しました",
-		})
+		if isFormRequest {
+			redirectURI := c.PostForm("redirect_uri")
+			registerURL := "/register?error=" + url.QueryEscape("認証プロバイダーの作成に失敗しました")
+			if redirectURI != "" {
+				registerURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
+			}
+			if req.ClientID != "" {
+				registerURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
+			c.Redirect(http.StatusFound, registerURL)
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "provider_creation_failed",
+				"message": "認証プロバイダーの作成に失敗しました",
+			})
+		}
 		return
 	}
 
-	// レスポンス（パスワードハッシュは含めない）
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "ユーザーの登録が完了しました",
-		"user": gin.H{
-			"id":            user.ID,
-			"client_id":     client.ClientID,
-			"email":         user.Email,
-			"username":      user.Username,
-			"display_name":  user.DisplayName,
-			"email_verified": user.EmailVerified,
-		},
-	})
+	// レスポンス
+	if isFormRequest {
+		// HTMLフォームからのリクエストの場合はリダイレクト
+		redirectURI := c.PostForm("redirect_uri")
+		if redirectURI != "" {
+			c.Redirect(http.StatusFound, redirectURI)
+		} else {
+			// ログインページにリダイレクト（登録完了）
+			loginURL := "/login?message=" + url.QueryEscape("ユーザー登録が完了しました。ログインしてください。")
+			if req.ClientID != "" {
+				loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
+			}
+			c.Redirect(http.StatusFound, loginURL)
+		}
+	} else {
+		// JSONリクエストの場合はJSONレスポンス
+		c.JSON(http.StatusCreated, gin.H{
+			"message": "ユーザーの登録が完了しました",
+			"user": gin.H{
+				"id":            user.ID,
+				"client_id":     client.ClientID,
+				"email":         user.Email,
+				"username":      user.Username,
+				"display_name":  h.getSafeDisplayName(user),
+				"email_verified": user.EmailVerified,
+			},
+		})
+	}
 }
 
 // Logout ユーザーログアウト POST /auth/logout
@@ -439,7 +542,7 @@ func (h *AuthHandler) Profile(c *gin.Context) {
 			"client_id":       user.Client.ClientID,
 			"email":           user.Email,
 			"username":        user.Username,
-			"display_name":    user.DisplayName,
+			"display_name":    h.getSafeDisplayName(&user),
 			"profile_image_url": user.ProfileImageURL,
 			"email_verified":  user.EmailVerified,
 			"last_login_at":   user.LastLoginAt,
@@ -514,21 +617,27 @@ func isProviderAvailable(providerType string) bool {
 // LoginPage ログインページ表示 GET /login
 func (h *AuthHandler) LoginPage(c *gin.Context) {
 	redirectURI := c.Query("redirect_uri")
+	clientID := c.Query("client_id")
 	errorMsg := c.Query("error")
+	message := c.Query("message")
 	
 	c.HTML(http.StatusOK, "login.html", gin.H{
 		"redirect_uri": redirectURI,
+		"client_id":    clientID,
 		"error":        errorMsg,
+		"message":      message,
 	})
 }
 
 // RegisterPage 新規登録ページ表示 GET /register
 func (h *AuthHandler) RegisterPage(c *gin.Context) {
 	redirectURI := c.Query("redirect_uri")
+	clientID := c.Query("client_id")
 	errorMsg := c.Query("error")
 	
 	c.HTML(http.StatusOK, "register.html", gin.H{
 		"redirect_uri": redirectURI,
+		"client_id":    clientID,
 		"error":        errorMsg,
 	})
 }
@@ -547,4 +656,17 @@ func min(a, b int) int {
 func (h *AuthHandler) hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+// generateUsername システム内部識別用ユーザー名を自動生成
+func (h *AuthHandler) generateUsername() string {
+	return "user_" + uuid.New().String()[:8]
+}
+
+// getSafeDisplayName 表示名の安全なフォールバック取得
+func (h *AuthHandler) getSafeDisplayName(user *model.User) string {
+	if user.DisplayName != nil && *user.DisplayName != "" {
+		return *user.DisplayName
+	}
+	return "名前未設定"
 }

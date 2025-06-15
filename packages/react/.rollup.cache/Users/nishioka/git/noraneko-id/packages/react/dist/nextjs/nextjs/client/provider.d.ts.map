@@ -1,0 +1,1 @@
+{"version":3,"file":"provider.d.ts","sourceRoot":"","sources":["../../../../src/nextjs/client/provider.tsx"],"names":[],"mappings":"AAEA,OAAc,EAAE,SAAS,EAAE,MAAM,OAAO,CAAC;AAEzC,OAAO,EAAE,YAAY,EAAE,MAAM,UAAU,CAAC;AAExC;;GAEG;AACH,wBAAgB,wBAAwB,CAAC,EACvC,QAAQ,EACR,MAAM,EACP,EAAE;IACD,QAAQ,EAAE,SAAS,CAAC;IACpB,MAAM,EAAE,YAAY,CAAC;CACtB,2CAkGA"}

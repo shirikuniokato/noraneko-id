@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: noraneko-postgres
+    environment:
+      POSTGRES_DB: noraneko_id
+      POSTGRES_USER: noraneko
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U noraneko -d noraneko_id"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # 種データ投入用の一時コンテナ
+  seed:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.seed
+    container_name: noraneko-seed
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://noraneko:dev_password@postgres:5432/noraneko_id?sslmode=disable
+      JWT_SECRET: dev-jwt-secret-please-change-in-production
+      SESSION_SECRET: dev-session-secret-please-change-in-production
+    volumes:
+      - ./backend:/app
+    command: ["sh", "-c", "sleep 5 && go run cmd/seed/main.go"]
+
+volumes:
+  postgres_data:

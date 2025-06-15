@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 	"time"
@@ -177,11 +178,13 @@ func (s *OAuth2Service) validateAuthorizationCodeGrant(req *TokenRequest) (*mode
 	var authCode model.OAuthAuthorizationCode
 	err := s.db.Where("code = ? AND used_at IS NULL", req.Code).First(&authCode).Error
 	if err != nil {
+		log.Printf("DEBUG: Authorization code not found: %s", req.Code)
 		return nil, nil, fmt.Errorf("認可コードが見つかりません")
 	}
 
 	// 有効期限の確認
 	if time.Now().After(authCode.ExpiresAt) {
+		log.Printf("DEBUG: Authorization code expired: %s", req.Code)
 		return nil, nil, fmt.Errorf("認可コードの有効期限が切れています")
 	}
 
@@ -189,11 +192,13 @@ func (s *OAuth2Service) validateAuthorizationCodeGrant(req *TokenRequest) (*mode
 	var client model.OAuthClient
 	err = s.db.Where("id = ? AND is_active = ?", authCode.ClientID, true).First(&client).Error
 	if err != nil {
+		log.Printf("DEBUG: Client not found for ID: %s", authCode.ClientID)
 		return nil, nil, fmt.Errorf("クライアントが見つかりません")
 	}
 
 	// client_id の確認
 	if client.ClientID != req.ClientID {
+		log.Printf("DEBUG: client_id mismatch - DB: %s, Request: %s", client.ClientID, req.ClientID)
 		return nil, nil, fmt.Errorf("client_id が一致しません")
 	}
 

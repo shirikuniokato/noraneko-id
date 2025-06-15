@@ -98,6 +98,9 @@ func (h *OAuth2Handler) handleAuthorizeGET(c *gin.Context) {
 	if !exists {
 		// ユーザーが未認証の場合、ログインページにリダイレクト
 		loginURL := "/login?redirect_uri=" + url.QueryEscape(c.Request.URL.String())
+		if req.ClientID != "" {
+			loginURL += "&client_id=" + url.QueryEscape(req.ClientID)
+		}
 		c.Redirect(http.StatusFound, loginURL)
 		return
 	}
@@ -275,8 +278,10 @@ func (h *OAuth2Handler) handleAuthorizationCodeGrant(c *gin.Context, req *oauth2
 	}
 
 	// クライアント認証（機密クライアントの場合）
+	log.Printf("DEBUG: Client auth check - IsConfidential: %t, ClientSecret provided: %t", client.IsConfidential, req.ClientSecret != "")
 	if client.IsConfidential {
 		if !h.validateClientSecret(client.ClientSecretHash, req.ClientSecret) {
+			log.Printf("DEBUG: Client secret validation failed")
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":             "invalid_client",
 				"error_description": "クライアント認証に失敗しました",

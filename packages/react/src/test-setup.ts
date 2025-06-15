@@ -20,7 +20,7 @@ const mockCrypto = {
     return array;
   },
   subtle: {
-    digest: async (algorithm: string, data: BufferSource): Promise<ArrayBuffer> => {
+    digest: async (_algorithm: string, data: BufferSource): Promise<ArrayBuffer> => {
       const str = new TextDecoder().decode(data);
       let hash = 0;
       for (let i = 0; i < str.length; i++) {
@@ -47,22 +47,44 @@ Object.defineProperty(global, 'crypto', {
 // TextEncoder/TextDecoder のポリフィル
 if (typeof global.TextEncoder === 'undefined') {
   global.TextEncoder = class TextEncoder {
-    encode(str: string): Uint8Array {
+    readonly encoding = 'utf-8';
+    
+    encode(input?: string): Uint8Array {
+      const str = input || '';
       const result = new Uint8Array(str.length);
       for (let i = 0; i < str.length; i++) {
         result[i] = str.charCodeAt(i);
       }
       return result;
     }
-  };
+
+    encodeInto(source: string, destination: Uint8Array): { read: number; written: number } {
+      const encoded = this.encode(source);
+      const toCopy = Math.min(encoded.length, destination.length);
+      destination.set(encoded.subarray(0, toCopy));
+      return { read: toCopy, written: toCopy };
+    }
+  } as any;
 }
 
 if (typeof global.TextDecoder === 'undefined') {
   global.TextDecoder = class TextDecoder {
-    decode(data: Uint8Array): string {
+    readonly encoding: string;
+    readonly fatal: boolean;
+    readonly ignoreBOM: boolean;
+
+    constructor(label?: string, options?: { fatal?: boolean; ignoreBOM?: boolean }) {
+      this.encoding = label || 'utf-8';
+      this.fatal = options?.fatal || false;
+      this.ignoreBOM = options?.ignoreBOM || false;
+    }
+
+    decode(input?: BufferSource, _options?: { stream?: boolean }): string {
+      if (!input) return '';
+      const data = input instanceof ArrayBuffer ? new Uint8Array(input) : input as Uint8Array;
       return String.fromCharCode(...data);
     }
-  };
+  } as any;
 }
 
 // fetch のモック

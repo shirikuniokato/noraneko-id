@@ -112,40 +112,68 @@ noraneko-id/
 - Node.js 18以上  
 - Docker & Docker Compose
 
-### 2. セットアップ
+### 2. 簡単セットアップ（推奨）
 
 ```bash
 # リポジトリクローン
 git clone https://github.com/your-org/noraneko-id.git
 cd noraneko-id
 
+# 自動セットアップスクリプトを実行
+./setup.sh
+```
+
+これにより以下が自動で行われます：
+- 環境変数ファイルの作成
+- データベースの起動
+- マイグレーションの実行
+- 開発用の種データ投入
+
+### 3. 手動セットアップ
+
+```bash
 # 依存関係インストール
 cd backend && go mod download
-cd ../web && npm install
 
 # 環境変数設定
 cp backend/.env.example backend/.env
 # .envファイルを編集
 
 # データベース起動
-docker-compose up -d postgres
+docker-compose up -d
+
+# 種データ投入
+cd backend && make seed
 ```
 
-### 3. 開発サーバー起動
+### 4. 開発サーバー起動
 
 ```bash
-# 開発スクリプトで一括起動
-./scripts/dev.sh
-
-# または個別起動
 # バックエンド: http://localhost:8080
-cd backend && go run ./cmd/server
+cd backend && make run
 
-# フロントエンド: http://localhost:3000
-cd web && npm run dev
+# フロントエンド: http://localhost:3000（未実装）
+# cd web && npm run dev
 ```
 
-### 4. API ドキュメント確認
+### 5. 開発用アカウント
+
+種データには以下のテストアカウントが含まれています：
+
+| メールアドレス | パスワード | 権限 |
+|---------------|-----------|------|
+| admin@example.com | password123 | システム管理者 |
+| user1@example.com | password123 | 限定管理者 |
+| user2@example.com | password123 | 一般ユーザー |
+
+### 6. 開発用OAuth2クライアント
+
+| クライアントID | クライアントシークレット | タイプ |
+|---------------|------------------------|--------|
+| dev-client-001 | dev-secret-please-change-in-production | Confidential |
+| test-spa-client | （なし） | Public (SPA用) |
+
+### 7. API ドキュメント確認
 
 **Swagger UI**: http://localhost:8080/swagger/index.html
 

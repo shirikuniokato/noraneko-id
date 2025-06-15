@@ -3,13 +3,11 @@
  */
 'use client';
 
-import React, { useReducer, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useReducer, useCallback, useEffect, useRef, useMemo } from 'react';
 import { NoranekoID } from '@noraneko/id-sdk';
 import type {
-  NoranekoIDConfig,
   User,
   AuthOptions,
-  LogoutOptions,
   TokenResponse,
   NoranekoIDEventType,
   EventCallback,
@@ -17,9 +15,11 @@ import type {
 
 import { NoranekoIDContext } from './NoranekoIDContext';
 import { noranekoIDReducer, initialState } from '../utils/reducer';
+import { safeRedirect, isSafeRedirectUrl } from '../utils/url-validation';
 import type {
   NoranekoIDProviderProps,
   NoranekoIDContextValue,
+  EnhancedLogoutOptions,
 } from '../types';
 
 /**
@@ -64,7 +64,7 @@ export function NoranekoIDProvider({
           }
         });
 
-        sdk.on('tokenRefreshed', (tokens: TokenResponse) => {
+        sdk.on('tokenRefreshed', (_tokens: TokenResponse) => {
           if (isMounted) {
             dispatch({ type: 'TOKEN_REFRESH_SUCCESS' });
           }
@@ -150,6 +150,8 @@ export function NoranekoIDProvider({
         isMounted = false;
       };
     }
+    
+    return undefined;
   }, [state.isInitializing]);
 
   // ログイン関数
@@ -168,19 +170,130 @@ export function NoranekoIDProvider({
     }
   }, []);
 
-  // ログアウト関数
-  const logout = useCallback(async (options?: LogoutOptions) => {
+  // OAuth2準拠の完全ログアウト関数
+  const logout = useCallback(async (options?: EnhancedLogoutOptions) => {
     if (!sdkRef.current) {
       throw new Error('SDK not initialized');
     }
 
+    const {
+      redirectTo = '/login',
+      clearLocalStorage = true,
+      clearSessionStorage = true,
+      skipRevoke = false,
+      force = false,
+      ...sdkOptions
+    } = options || {};
+
     try {
       dispatch({ type: 'LOGOUT_START' });
-      await sdkRef.current.logout(options);
+      
+      // Phase 1: SDK内部でOAuth2 revoke + Cookie削除を実行
+      if (typeof window !== 'undefined') {
+        try {
+          const response = await fetch('/api/auth', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ skipRevoke })
+          });
+          
+          if (!response.ok && !force) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Logout API failed');
+          }
+          
+          // レスポンス詳細をログ出力（デバッグ用）
+          const result = await response.json().catch(() => ({}));
+          console.log('Logout completed:', result.actions || []);
+          
+        } catch (fetchError) {
+          console.warn('Logout API error:', fetchError);
+          if (!force) {
+            throw fetchError;
+          }
+        }
+      }
+      
+      // Phase 2: 追加のローカル状態クリア
+      if (typeof window !== 'undefined') {
+        if (clearLocalStorage) {
+          // noraneko-id関連のローカルストレージをクリア
+          const keysToRemove = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('noraneko_')) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => localStorage.removeItem(key));
+        }
+        
+        if (clearSessionStorage) {
+          // noraneko-id関連のセッションストレージをクリア
+          const keysToRemove = [];
+          for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('noraneko_')) {
+              keysToRemove.push(key);
+            }
+          }
+          keysToRemove.forEach(key => sessionStorage.removeItem(key));
+        }
+      }
+      
+      // Phase 3: SDK標準ログアウト（イベント発火用）
+      try {
+        await sdkRef.current.logout(sdkOptions);
+      } catch (sdkError) {
+        console.warn('SDK logout error:', sdkError);
+        if (!force) {
+          throw sdkError;
+        }
+      }
+      
+      // Phase 4: 状態更新（成功時）
+      dispatch({ type: 'LOGOUT_SUCCESS' });
+      
+      // Phase 5: 安全な自動リダイレクト
+      if (typeof window !== 'undefined' && redirectTo) {
+        // URL検証してから安全にリダイレクト
+        if (isSafeRedirectUrl(redirectTo)) {
+          // 少し遅延させてstate更新を完了させる
+          setTimeout(() => {
+            safeRedirect(redirectTo, '/login');
+          }, 100);
+        } else {
+          console.warn('Unsafe redirect URL detected, redirecting to default:', redirectTo);
+          setTimeout(() => {
+            safeRedirect('/login');
+          }, 100);
+        }
+      }
+      
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Logout failed');
-      dispatch({ type: 'LOGOUT_ERROR', payload: err });
-      throw err;
+      
+      if (force) {
+        // 強制ログアウト: エラーでも状態をクリアしてリダイレクト
+        console.warn('Force logout due to error:', err);
+        dispatch({ type: 'LOGOUT_SUCCESS' });
+        
+        if (typeof window !== 'undefined' && redirectTo) {
+          if (isSafeRedirectUrl(redirectTo)) {
+            setTimeout(() => {
+              safeRedirect(redirectTo, '/login');
+            }, 100);
+          } else {
+            console.warn('Unsafe redirect URL detected during force logout, redirecting to default:', redirectTo);
+            setTimeout(() => {
+              safeRedirect('/login');
+            }, 100);
+          }
+        }
+      } else {
+        dispatch({ type: 'LOGOUT_ERROR', payload: err });
+        throw err;
+      }
     }
   }, []);
 

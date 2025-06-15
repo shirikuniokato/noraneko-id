@@ -4,6 +4,7 @@
 'use client';
 
 import React from 'react';
+import type { AuthOptions } from '@noraneko/id-sdk';
 import { useAuthState } from '../hooks/useAuthState';
 import { useAuthActions } from '../hooks/useAuthActions';
 
@@ -118,10 +119,13 @@ export function ProtectedRoute({
   React.useEffect(() => {
     if (!isAuthenticated && !isLoading && !disableAutoLogin) {
       const scopes = loginOptions.scopes || ['openid', 'profile', ...requiredScopes];
-      login({
-        scopes,
-        additionalParams: loginOptions.additionalParams
-      });
+      const authOptions: AuthOptions = { scopes };
+      
+      if (loginOptions.additionalParams) {
+        authOptions.additionalParams = loginOptions.additionalParams;
+      }
+      
+      login(authOptions);
     }
   }, [isAuthenticated, isLoading, disableAutoLogin, login, requiredScopes, loginOptions]);
 

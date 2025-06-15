@@ -10,8 +10,27 @@ import type {
   LogoutOptions,
   TokenResponse,
   NoranekoIDEventType,
-  EventCallback
+  EventCallback,
+  NoranekoID
 } from '@noraneko/id-sdk';
+
+// 拡張ログアウトオプション
+export interface EnhancedLogoutOptions extends LogoutOptions {
+  /** ログアウト後のリダイレクト先 */
+  redirectTo?: string;
+  
+  /** ローカルストレージもクリアするか */
+  clearLocalStorage?: boolean;
+  
+  /** セッションストレージもクリアするか */
+  clearSessionStorage?: boolean;
+  
+  /** OAuth2 revokeをスキップするか（緊急ログアウト用） */
+  skipRevoke?: boolean;
+  
+  /** エラーでも強制ログアウトするか */
+  force?: boolean;
+}
 
 // Provider関連
 export interface NoranekoIDProviderProps {
@@ -55,7 +74,7 @@ export interface UseNoranekoIDResult {
   login: (options?: AuthOptions) => Promise<void>;
   
   /** ログアウト */
-  logout: (options?: LogoutOptions) => Promise<void>;
+  logout: (options?: EnhancedLogoutOptions) => Promise<void>;
   
   /** アクセストークン取得 */
   getAccessToken: () => Promise<string | null>;
@@ -92,7 +111,7 @@ export interface UseAccessTokenResult {
 
 export interface UseAuthActionsResult {
   login: (options?: AuthOptions) => Promise<void>;
-  logout: (options?: LogoutOptions) => Promise<void>;
+  logout: (options?: EnhancedLogoutOptions) => Promise<void>;
   isLoading: boolean;
   error: Error | null;
 }
@@ -161,7 +180,7 @@ export interface ConditionalRenderProps {
 // Context関連の型
 export interface NoranekoIDContextValue extends UseNoranekoIDResult {
   /** SDK インスタンス（内部使用） */
-  sdk: any; // NoranekoID型だが、循環参照を避けるためanyで定義
+  sdk: NoranekoID | null;
   
   /** イベントリスナー登録 */
   addEventListener: <T extends NoranekoIDEventType>(
@@ -218,7 +237,7 @@ export interface AuthenticationGuardOptions {
 
 // HOC（Higher-Order Component）用の型
 export interface WithNoranekoIDProps {
-  noraneko: UseNoranekoIDResult;
+  noranekoID: UseNoranekoIDResult;
 }
 
 export type ComponentWithNoranekoID<P = {}> = React.ComponentType<P & WithNoranekoIDProps>;

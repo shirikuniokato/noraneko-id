@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../src/nextjs/middleware/index.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AAGH,OAAO,EAAE,KAAK,EAAE,WAAW,EAAE,IAAI,EAAE,MAAM,SAAS,CAAC;AACnD,YAAY,EAAE,iBAAiB,EAAE,MAAM,SAAS,CAAC;AAGjD,OAAO,EAAE,cAAc,EAAE,SAAS,EAAE,YAAY,EAAE,MAAM,QAAQ,CAAC;AACjE,YAAY,EAAE,oBAAoB,EAAE,MAAM,QAAQ,CAAC"}

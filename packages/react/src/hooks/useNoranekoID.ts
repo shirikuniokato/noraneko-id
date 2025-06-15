@@ -38,7 +38,7 @@ import type { UseNoranekoIDResult, UseNoranekoIDOptions } from '../types';
  * }
  * ```
  */
-export function useNoranekoID(options: UseNoranekoIDOptions = {}): UseNoranekoIDResult {
+export function useNoranekoID(_options: UseNoranekoIDOptions = {}): UseNoranekoIDResult {
   const context = useContext(NoranekoIDContext);
 
   if (!context) {
