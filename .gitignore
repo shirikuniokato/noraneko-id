@@ -39,6 +39,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+backend/*.log
+backend/server*.log
 
 # Dependencies
 backend/vendor/
@@ -65,3 +67,9 @@ web/coverage/
 # Local development
 docker-data/
 .docker/
+
+# Development temporary files
+backend/backup_*.sql
+backend/cookies.txt
+backend/test-*.html
+backend/test-*.py
