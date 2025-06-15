@@ -1,15 +1,15 @@
 /**
  * URL Validation Utilities
- * セキュリティのためのURL検証機能
+ * セキュリティのためのURL検証機能（クライアント・サーバー共通）
  */
 
 /**
- * 安全なリダイレクトURLかどうかを検証
+ * 安全なリダイレクトURLかどうかを検証（共通ロジック）
  * - 相対パス（/で始まる）のみ許可
  * - プロトコル付きURL（http:, https:, javascript: 等）を拒否
  * - 二重スラッシュ（//）を拒否（プロトコル相対URLを防ぐ）
  */
-export function isSafeRedirectUrl(url: string): boolean {
+function validateSafeRedirectUrl(url: string): boolean {
   if (!url || typeof url !== 'string') {
     return false;
   }
@@ -50,7 +50,25 @@ export function isSafeRedirectUrl(url: string): boolean {
 }
 
 /**
- * 安全なリダイレクトを実行
+ * クライアントサイド用のURL検証
+ * @param url 検証するURL
+ * @returns 安全かどうか
+ */
+export function isSafeRedirectUrl(url: string): boolean {
+  return validateSafeRedirectUrl(url);
+}
+
+/**
+ * サーバーサイド用のURL検証（クライアント側と同じロジック）
+ * @param url 検証するURL  
+ * @returns 安全かどうか
+ */
+export function isSafeServerRedirectUrl(url: string): boolean {
+  return validateSafeRedirectUrl(url);
+}
+
+/**
+ * 安全なリダイレクトを実行（クライアントサイド）
  * 検証に失敗した場合はデフォルトURLにリダイレクト
  */
 export function safeRedirect(url: string, defaultUrl: string = '/'): void {
@@ -59,6 +77,32 @@ export function safeRedirect(url: string, defaultUrl: string = '/'): void {
   if (typeof window !== 'undefined') {
     window.location.href = targetUrl;
   }
+}
+
+/**
+ * 安全なリダイレクト実行（サーバーサイド）
+ * 検証に失敗した場合はデフォルトURLにリダイレクト
+ * 
+ * Note: この関数はNext.jsのredirect()を使用するため、
+ * Next.js環境でのみ使用可能です。
+ */
+export function safeServerRedirect(url: string, defaultUrl: string = '/'): never {
+  const targetUrl = isSafeServerRedirectUrl(url) ? url : defaultUrl;
+  
+  // Next.jsのredirect関数を動的インポートで使用
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    // サーバー環境でのみ実行
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { redirect } = require('next/navigation');
+      redirect(targetUrl);
+    } catch (error) {
+      console.error('Server redirect failed:', error);
+      throw new Error(`Redirect failed: ${error}`);
+    }
+  }
+  
+  throw new Error('safeServerRedirect can only be used in server environment');
 }
 
 /**

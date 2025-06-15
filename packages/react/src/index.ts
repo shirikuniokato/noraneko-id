@@ -7,22 +7,12 @@
 // Provider
 export { NoranekoIDProvider } from './context/NoranekoIDProvider';
 
-// Main Hook
+// Main Hook (unified)
 export { useNoranekoID } from './hooks/useNoranekoID';
 
-// Specialized Hooks
-export { useAuthState } from './hooks/useAuthState';
-export { useUserInfo } from './hooks/useUserInfo';
-export { useAccessToken } from './hooks/useAccessToken';
-export { useAuthActions } from './hooks/useAuthActions';
-
-// Higher-Order Components and Utils
+// Components and HOCs
 export { 
-  ProtectedRoute,
-  LoginRequired,
   ConditionalRender,
-  AuthenticatedOnly,
-  UnauthenticatedOnly,
   withNoranekoID,
   withAuthRequired 
 } from './components';
@@ -34,14 +24,8 @@ export type {
   
   // Hook return types
   UseNoranekoIDResult,
-  UseAuthStateResult,
-  UseUserInfoResult,
-  UseAccessTokenResult,
-  UseAuthActionsResult,
   
   // Component types
-  ProtectedRouteProps,
-  LoginRequiredProps,
   ConditionalRenderProps,
   
   // Context types

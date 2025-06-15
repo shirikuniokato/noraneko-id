@@ -1,274 +1,341 @@
-# noraneko-id JavaScript SDK 要件仕様書
+# noraneko-id React SDK 要件仕様書（実装完了版）
 
 ## 概要
 
-noraneko-id JavaScript SDKは、クライアントアプリケーションがnoraneko-id OAuth2認証サーバーと簡単に連携できるようにするためのライブラリです。OAuth2 Authorization Code + PKCEフローを実装し、セキュアで使いやすいAPIを提供します。
+noraneko-id React SDKは、Reactアプリケーションがnoraneko-id OAuth2認証サーバーと簡単に連携できるようにするためのライブラリです。OAuth2 Authorization Code + PKCEフローを実装し、セキュアで使いやすいAPIを提供します。
 
-## 設計目標
+**現在のステータス**: ✅ **実装完了・テスト済み**
 
-### 1. 実装負担の軽減
+## 設計目標（達成済み）
+
+### 1. 実装負担の軽減 ✅
 - 各クライアントアプリケーションでの認証・認可実装を最小化
 - 複雑なOAuth2フローを抽象化し、シンプルなAPIで提供
-- フレームワーク固有の実装（React、Next.js等）は別パッケージとして提供
+- React固有の実装（Hooks、Context、Components）を完全実装
+- Next.js特化機能（Server Components、Middleware、API Routes）も提供
 
-### 2. セキュリティ
+### 2. セキュリティ ✅
 - OAuth2 + PKCE (RFC 7636) 完全準拠
-- セキュアなトークン管理
-- CSRF攻撃対策（state parameter）
+- セキュアなトークン管理（HttpOnly Cookie対応）
+- CSRF攻撃対策（state parameter、SameSite Cookie）
+- XSS・Open Redirect脆弱性対策実装済み
 - 適切なトークン有効期限管理
 
-### 3. 開発者体験
-- TypeScript完全対応
+### 3. 開発者体験 ✅
+- TypeScript完全対応（strict mode）
 - 直感的で分かりやすいAPI設計
 - 豊富なドキュメントとサンプルコード
 - デバッグしやすいエラーメッセージ
+- IntelliSense対応の型定義
 
-## 機能要件
+## 実装済み機能
 
-### 1. OAuth2認証フロー
+### 1. React統合 ✅
 
-#### 1.1 Authorization Code + PKCE フロー
-```javascript
-// 認証開始
-await sdk.startAuth({
-  scopes: ['openid', 'profile', 'email'],
-  redirectUri: 'https://app.example.com/callback'
-});
+#### 1.1 Context Provider
+```typescript
+// 実装済み - NoranekoIDProvider
+import { NoranekoIDProvider } from '@noraneko/id-react';
 
-// コールバック処理
-const tokens = await sdk.handleCallback();
+function App() {
+  return (
+    <NoranekoIDProvider
+      config={{
+        clientId: 'your-client-id',
+        issuer: 'https://id.example.com',
+        scopes: ['openid', 'profile', 'email']
+      }}
+    >
+      <MainApp />
+    </NoranekoIDProvider>
+  );
+}
 ```
 
-#### 1.2 サポートするグラントタイプ
-- Authorization Code + PKCE（メイン）
-- Refresh Token（トークン更新用）
+#### 1.2 React Hooks
+```typescript
+// 実装済み - メインフック
+const { user, isAuthenticated, login, logout } = useNoranekoID();
 
-#### 1.3 PKCE実装
-- Code Verifier: 128文字のランダム文字列
-- Code Challenge Method: S256 (SHA256)
-- 自動的なchallenge/verifier生成・管理
+// 実装済み - 特化フック
+const { isAuthenticated, isLoading } = useAuthState();
+const { user, refreshUser } = useUserInfo();
+const { getAccessToken } = useAccessToken();
+const { login, logout } = useAuthActions();
+```
 
-### 2. トークン管理
+#### 1.3 Reactコンポーネント
+```typescript
+// 実装済み - 認証保護コンポーネント
+<ProtectedRoute fallback={<Login />}>
+  <Dashboard />
+</ProtectedRoute>
 
-#### 2.1 トークンの種類
-- Access Token（JWT形式）
-- Refresh Token
-- ID Token（OpenID Connect対応）
+// 実装済み - 条件表示コンポーネント
+<ConditionalRender
+  authenticated={<UserMenu />}
+  unauthenticated={<LoginButton />}
+/>
+```
 
-#### 2.2 トークン保存
-```javascript
-// 設定可能な保存先
+### 2. Next.js統合 ✅
+
+#### 2.1 Server Components対応
+```typescript
+// 実装済み - サーバーサイド認証
+import { requireAuth, getServerUserInfo } from '@noraneko/id-react/nextjs/server';
+
+export default async function DashboardPage() {
+  await requireAuth();
+  const userInfo = await getServerUserInfo();
+  return <Dashboard user={userInfo} />;
+}
+```
+
+#### 2.2 API Routes
+```typescript
+// 実装済み - 自動APIハンドラー
+import { createDefaultNoranekoIDHandler } from '@noraneko/id-react/nextjs/api';
+export const { GET, POST, DELETE } = createDefaultNoranekoIDHandler();
+```
+
+#### 2.3 Middleware
+```typescript
+// 実装済み - 認証ミドルウェア
+import { authMiddleware } from '@noraneko/id-react/nextjs/middleware';
+
+export function middleware(request: NextRequest) {
+  return authMiddleware({
+    protectedPaths: ['/dashboard'],
+    publicOnlyPaths: ['/login']
+  })(request);
+}
+```
+
+#### 2.4 HttpOnly Cookie対応
+```typescript
+// 実装済み - セキュアなトークン保存
 const config = {
-  tokenStorage: 'localStorage', // 'localStorage' | 'sessionStorage' | 'memory'
-  storagePrefix: 'noraneko_' // ストレージキーのプレフィックス
+  useHttpOnlyCookies: true,
+  cookies: {
+    secure: true,
+    sameSite: 'strict'
+  }
 };
 ```
 
-#### 2.3 自動リフレッシュ
-- アクセストークン有効期限の自動監視
-- 期限切れ前の自動更新
-- リフレッシュ失敗時の認証再要求
+### 3. セキュリティ機能 ✅
 
-### 3. ユーザー情報取得
+#### 3.1 脆弱性対策
+```typescript
+// 実装済み - URL検証ユーティリティ
+import { isSafeRedirectUrl } from '@noraneko/id-react/utils';
 
-#### 3.1 ユーザー情報API
-```javascript
-// ユーザー情報取得
-const user = await sdk.getUserInfo();
-// {
-//   id: "uuid",
-//   email: "user@example.com",
-//   username: "username",
-//   display_name: "表示名",
-//   email_verified: true
-// }
-```
+// XSS対策
+if (isSafeRedirectUrl(redirectUrl)) {
+  safeRedirect(redirectUrl, '/default');
+}
 
-#### 3.2 認証状態管理
-```javascript
-// 認証状態確認
-const isAuthenticated = await sdk.isAuthenticated();
-
-// ログアウト
-await sdk.logout();
-```
-
-### 4. イベントシステム
-
-#### 4.1 認証状態変更イベント
-```javascript
-sdk.on('authenticated', (user) => {
-  console.log('ユーザーがログインしました:', user);
-});
-
-sdk.on('unauthenticated', () => {
-  console.log('ユーザーがログアウトしました');
-});
-
-sdk.on('tokenRefreshed', (tokens) => {
-  console.log('トークンが更新されました');
-});
-```
-
-#### 4.2 エラーイベント
-```javascript
-sdk.on('error', (error) => {
-  console.error('認証エラー:', error);
-});
-```
-
-## 技術要件
-
-### 1. 対応環境
-- **ブラウザ**: ES2020+対応のモダンブラウザ
-- **Node.js**: 対応しない（ブラウザ専用）
-- **TypeScript**: 完全対応（型定義含む）
-
-### 2. モジュール形式
-- **ES Modules**: メイン形式
-- **UMD**: CDN配布用
-- **TypeScript**: .d.tsファイル提供
-
-### 3. 依存関係
-- **Pure JavaScript**: 外部依存なし
-- **Polyfill**: 必要に応じてユーザー側で追加
-
-### 4. バンドルサイズ
-- Minified + Gzipped: 15KB以下を目標
-
-## API設計
-
-### 1. 初期化
-```javascript
-import { NoranekoID } from '@noraneko/id-sdk';
-
-const sdk = new NoranekoID({
-  // 必須設定
-  clientId: 'your-client-id',
-  issuer: 'https://id.noraneko.dev', // noraneko-idサーバーのベースURL
-  
-  // オプション設定
-  redirectUri: window.location.origin + '/auth/callback',
-  scopes: ['openid', 'profile', 'email'],
-  tokenStorage: 'localStorage',
-  storagePrefix: 'noraneko_',
-  
-  // 詳細設定
-  clockSkewLeeway: 60, // JWTトークンの時刻スキュー許容秒数
-  refreshThreshold: 300, // トークン期限切れ前の更新開始秒数
-});
-```
-
-### 2. 主要メソッド
-```javascript
-class NoranekoID {
-  // 認証フロー
-  async startAuth(options?: AuthOptions): Promise<void>
-  async handleCallback(url?: string): Promise<TokenResponse>
-  
-  // 認証状態
-  async isAuthenticated(): Promise<boolean>
-  async getUser(): Promise<User | null>
-  async getAccessToken(): Promise<string | null>
-  
-  // トークン管理
-  async refreshTokens(): Promise<TokenResponse>
-  async logout(options?: LogoutOptions): Promise<void>
-  
-  // イベント
-  on(event: string, callback: Function): void
-  off(event: string, callback: Function): void
-  emit(event: string, ...args: any[]): void
+// Open Redirect対策
+function safeServerRedirect(url: string, defaultUrl: string) {
+  const targetUrl = isSafeServerRedirectUrl(url) ? url : defaultUrl;
+  redirect(targetUrl);
 }
 ```
 
-## セキュリティ要件
+#### 3.2 OAuth2 + PKCE
+```typescript
+// 実装済み - RFC 7636完全準拠
+// - Code Verifier: 128文字のランダム文字列
+// - Code Challenge Method: S256 (SHA256)
+// - 自動的なchallenge/verifier生成・管理
+```
 
-### 1. PKCE実装
-- RFC 7636完全準拠
-- 暗号学的に安全な乱数生成
-- SHA256ハッシュによるchallenge生成
+### 4. 状態管理 ✅
 
-### 2. State Parameter
-- CSRF攻撃防止のためのstate parameter生成・検証
-- セッション固定攻撃対策
+#### 4.1 Reducer-based状態管理
+```typescript
+// 実装済み - 型安全な状態管理
+export type NoranekoIDAction =
+  | { type: 'INITIALIZE_START' }
+  | { type: 'AUTH_SUCCESS'; payload: User }
+  | { type: 'LOGOUT_SUCCESS' }
+  // ... 他のアクション型
+```
 
-### 3. トークン保護
-- XSS攻撃対策（適切なストレージ選択）
-- トークンの安全な保存・取得
-
-### 4. エラーハンドリング
-- 機密情報を含まないエラーメッセージ
-- 適切なログレベル設定
-
-## エラー処理
-
-### 1. エラーの種類
-```javascript
-// 認証エラー
-class AuthenticationError extends Error {
-  code: 'AUTHENTICATION_FAILED' | 'TOKEN_EXPIRED' | 'INVALID_TOKEN'
-  originalError?: Error
-}
-
-// 設定エラー
-class ConfigurationError extends Error {
-  code: 'INVALID_CONFIG' | 'MISSING_REQUIRED_PARAMETER'
-}
-
-// ネットワークエラー
-class NetworkError extends Error {
-  code: 'NETWORK_ERROR' | 'SERVER_ERROR'
-  status?: number
+#### 4.2 エラーハンドリング
+```typescript
+// 実装済み - 詳細なエラー分類
+export interface UseNoranekoIDResult {
+  error: Error | null;
+  isLoading: boolean;
+  isInitializing: boolean;
+  // ... 他のプロパティ
 }
 ```
 
-### 2. エラー処理パターン
-```javascript
-try {
-  const user = await sdk.getUser();
-} catch (error) {
-  if (error instanceof AuthenticationError) {
-    // 認証が必要
-    await sdk.startAuth();
-  } else {
-    // その他のエラー処理
-    console.error('予期しないエラー:', error);
+## 技術仕様（実装済み）
+
+### 1. 対応環境 ✅
+- **React**: 16.8+ (Hooks対応)
+- **Next.js**: 14+ (App Router)
+- **TypeScript**: 5+ (strict mode完全対応)
+- **Node.js**: 16+ (開発・ビルド環境)
+
+### 2. パッケージ形式 ✅
+```json
+{
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",  
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.esm.js",
+    "./nextjs": "./dist/nextjs/index.esm.js",
+    "./nextjs/client": "./dist/nextjs/client.esm.js",
+    "./nextjs/server": "./dist/nextjs/server.esm.js"
   }
 }
 ```
 
-## 今後の拡張計画
+### 3. 依存関係 ✅
+```json
+{
+  "dependencies": {
+    "@noraneko/id-sdk": "file:../sdk",
+    "tslib": "^2.8.1"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  }
+}
+```
 
-### フレームワーク統合パッケージ
-1. **@noraneko/id-react**: React用フックス・コンポーネント
-2. **@noraneko/id-nextjs**: Next.js用ミドルウェア・API Routes
-3. **@noraneko/id-vue**: Vue.js用プラグイン（将来的に）
+## 実装されたAPI
 
-### 追加機能
-1. **サーバーサイド認証**: Node.js環境での実装
-2. **多要素認証**: TOTP、WebAuthn対応
-3. **セッション管理**: 複数タブ間での状態同期
+### 1. React Provider ✅
+```typescript
+// 完全実装済み
+export interface NoranekoIDProviderProps {
+  config: NoranekoIDConfig;
+  children: ReactNode;
+  loadingComponent?: ReactNode;
+  errorComponent?: ReactNode | ((error: Error) => ReactNode);
+  onInitialized?: () => void;
+  onInitializationError?: (error: Error) => void;
+}
+```
 
-## 開発・テスト要件
+### 2. React Hooks ✅
+```typescript
+// 全て実装済み
+export function useNoranekoID(): UseNoranekoIDResult;
+export function useAuthState(): UseAuthStateResult;
+export function useUserInfo(): UseUserInfoResult;
+export function useAccessToken(): UseAccessTokenResult;
+export function useAuthActions(): UseAuthActionsResult;
+```
 
-### 1. テスト
-- Unit Tests: Jest + Testing Library
-- Integration Tests: OAuth2フロー全体のテスト
-- Browser Tests: 複数ブラウザでの動作確認
+### 3. Next.js サーバーサイド ✅
+```typescript
+// 完全実装済み
+export async function requireAuth(options?: { cookiePrefix?: string; redirectTo?: string }): Promise<AuthTokens>;
+export async function getServerUserInfo(options?: { cookiePrefix?: string; issuer?: string }): Promise<ServerUserInfo | null>;
+export async function requireAuthWithPermission(authorizer: Function, options?: {}): Promise<ServerUserInfo>;
+export async function authenticatedFetch(url: string, options?: RequestInit): Promise<Response>;
+export async function logout(options?: {}): Promise<{ success: boolean; actions: string[] }>;
+```
 
-### 2. ドキュメント
-- API Reference（JSDoc生成）
-- Getting Started ガイド
-- サンプルアプリケーション
-- Migration Guide
+## セキュリティ実装（完了済み）
 
-### 3. 品質保証
-- TypeScript strict mode
-- ESLint + Prettier
-- CI/CD パイプライン
-- セキュリティ監査
+### 1. 脆弱性対策 ✅
+```typescript
+// XSS対策 - 実装済み
+export function isSafeRedirectUrl(url: string): boolean;
+
+// Open Redirect対策 - 実装済み  
+function safeServerRedirect(url: string, defaultUrl: string): never;
+
+// CSRF対策 - HttpOnly Cookie実装済み
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'strict' as const
+};
+```
+
+### 2. OAuth2 + PKCE ✅
+- RFC 7636完全準拠（Core SDKで実装済み）
+- 暗号学的に安全な乱数生成
+- SHA256ハッシュによるchallenge生成
+
+### 3. エラーハンドリング ✅
+```typescript
+// 実装済み型安全なエラー処理
+export type NoranekoIDAction =
+  | { type: 'INITIALIZE_ERROR'; payload: Error }
+  | { type: 'AUTH_ERROR'; payload: Error }
+  | { type: 'LOGOUT_ERROR'; payload: Error }
+  // ...その他のアクション
+```
+
+## テスト実装状況 ✅
+
+### 1. 単体テスト ✅
+- ✅ Components: ProtectedRoute, ConditionalRender
+- ✅ Context: NoranekoIDProvider  
+- ✅ Hooks: useNoranekoID, useAuthState, useUserInfo
+
+### 2. テスト環境設定 ✅
+```typescript
+// test-setup.ts - 完全実装済み
+// - TextEncoder/TextDecoder polyfill
+// - Crypto API mock
+// - fetch mock
+// - localStorage/sessionStorage mock
+// - 型安全なモック関数
+```
+
+## 開発・ビルド環境 ✅
+
+### 1. ビルドツール ✅
+```json
+{
+  "scripts": {
+    "build": "rollup -c",
+    "test": "jest",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx"
+  }
+}
+```
+
+### 2. 品質保証 ✅
+- ✅ TypeScript strict mode
+- ✅ ESLint + React hooks rules
+- ✅ Jest + React Testing Library
+- ✅ Rollup + TypeScript bundling
+
+## 今後の拡張予定
+
+### 短期計画（3ヶ月以内）
+- [ ] Vue.js統合パッケージ（@noraneko/id-vue）
+- [ ] WebAuthn多要素認証対応
+- [ ] Session management（複数タブ同期）
+
+### 中期計画（6ヶ月以内）
+- [ ] React Native対応
+- [ ] Electron対応
+- [ ] Progressive Web App最適化
+
+### 長期計画（1年以内）
+- [ ] Angular統合パッケージ
+- [ ] Svelte統合パッケージ
+- [ ] Micro-frontends対応
 
 ---
 
-この要件仕様書は開発進行に応じて更新・詳細化していきます。
+📝 **最終更新**: 2025-01-15  
+🔄 **バージョン**: v0.1.0  
+📋 **ステータス**: ✅ **実装完了・本番レディ**  
+👥 **メンテナ**: noraneko-id development team

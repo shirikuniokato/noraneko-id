@@ -86,74 +86,8 @@ export interface UseNoranekoIDResult {
   refreshTokens: () => Promise<TokenResponse>;
 }
 
-// 個別Hook用の型
-export interface UseAuthStateResult {
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  isInitializing: boolean;
-  error: Error | null;
-}
-
-export interface UseUserInfoResult {
-  user: User | null;
-  isLoading: boolean;
-  error: Error | null;
-  refreshUser: () => Promise<User | null>;
-}
-
-export interface UseAccessTokenResult {
-  accessToken: string | null;
-  isLoading: boolean;
-  error: Error | null;
-  getAccessToken: () => Promise<string | null>;
-  refreshTokens: () => Promise<TokenResponse>;
-}
-
-export interface UseAuthActionsResult {
-  login: (options?: AuthOptions) => Promise<void>;
-  logout: (options?: EnhancedLogoutOptions) => Promise<void>;
-  isLoading: boolean;
-  error: Error | null;
-}
 
 // コンポーネント関連の型
-export interface ProtectedRouteProps {
-  /** 認証が必要な子コンポーネント */
-  children: ReactNode;
-  
-  /** 未認証時に表示するコンポーネント */
-  fallback?: ReactNode;
-  
-  /** 未認証時のリダイレクト先（指定時は自動リダイレクト） */
-  redirectTo?: string;
-  
-  /** 認証完了後のリダイレクト先 */
-  returnTo?: string;
-  
-  /** 必要な権限（カスタム認可ロジック） */
-  requiredPermissions?: string[];
-  
-  /** 権限チェック関数 */
-  hasPermission?: (user: User, permissions: string[]) => boolean;
-}
-
-export interface LoginRequiredProps {
-  /** ログインボタンのテキスト */
-  loginText?: string;
-  
-  /** メッセージ */
-  message?: string;
-  
-  /** ログインオプション */
-  loginOptions?: AuthOptions;
-  
-  /** カスタムスタイル */
-  className?: string;
-  
-  /** カスタムログインボタンコンポーネント */
-  loginComponent?: ReactNode;
-}
-
 export interface ConditionalRenderProps {
   /** 認証済みの場合に表示する内容 */
   authenticated?: ReactNode;

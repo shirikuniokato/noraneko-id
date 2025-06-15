@@ -1,42 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { AuthTokens, ServerUserInfo } from '../types';
-
-/**
- * サーバーサイド用の安全なURL検証
- */
-function isSafeServerRedirectUrl(url: string): boolean {
-  if (!url || typeof url !== 'string') {
-    return false;
-  }
-
-  const trimmedUrl = url.trim();
-  if (!trimmedUrl) {
-    return false;
-  }
-
-  // プロトコル付きURLを拒否
-  if (trimmedUrl.includes(':')) {
-    return false;
-  }
-
-  // 二重スラッシュを拒否
-  if (trimmedUrl.startsWith('//')) {
-    return false;
-  }
-
-  // 相対パス（/で始まる）のみ許可
-  if (!trimmedUrl.startsWith('/')) {
-    return false;
-  }
-
-  // バックスラッシュや制御文字を含むものを拒否
-  if (trimmedUrl.includes('\\') || /[\x00-\x1f\x7f-\x9f]/.test(trimmedUrl)) {
-    return false;
-  }
-
-  return true;
-}
+import { isSafeServerRedirectUrl } from '../../utils/url-validation';
 
 /**
  * 安全なリダイレクト実行（サーバーサイド）

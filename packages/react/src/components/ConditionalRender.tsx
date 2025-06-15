@@ -4,7 +4,7 @@
 'use client';
 
 import React from 'react';
-import { useAuthState } from '../hooks/useAuthState';
+import { useNoranekoID } from '../hooks/useNoranekoID';
 
 export interface ConditionalRenderProps {
   /** 認証済み時に表示するコンポーネント */
@@ -17,6 +17,21 @@ export interface ConditionalRenderProps {
   error?: React.ReactNode;
   /** 子コンポーネント（authenticated時と同じ） */
   children?: React.ReactNode;
+  /** ログインボタンを自動表示するか */
+  showLoginButton?: boolean;
+  /** ログインボタン用のメッセージ */
+  loginMessage?: string;
+  /** ログインボタンのテキスト */
+  loginButtonText?: string;
+  /** ログイン時のオプション */
+  loginOptions?: {
+    scopes?: string[];
+    additionalParams?: Record<string, string>;
+  };
+  /** カスタムスタイル */
+  className?: string;
+  /** カスタムスタイル（インライン） */
+  style?: React.CSSProperties;
 }
 
 /**
@@ -91,9 +106,15 @@ export function ConditionalRender({
   unauthenticated,
   loading,
   error,
-  children
+  children,
+  showLoginButton = false,
+  loginMessage = 'このコンテンツにアクセスするにはログインが必要です',
+  loginButtonText = 'ログイン',
+  loginOptions = {},
+  className,
+  style
 }: ConditionalRenderProps): JSX.Element | null {
-  const { isAuthenticated, isLoading, isInitializing, error: authError } = useAuthState();
+  const { isAuthenticated, isLoading, isInitializing, login, error: authError } = useNoranekoID();
 
   // エラー状態
   if (authError && error) {
@@ -129,40 +150,75 @@ export function ConditionalRender({
     return <>{unauthenticated}</>;
   }
 
+  // ログインボタンを自動表示する場合
+  if (showLoginButton) {
+    return renderLoginButton();
+  }
+
   // 何も指定されていない場合はnullを返す
   return null;
-}
 
-/**
- * AuthenticatedOnly - 認証済みユーザーのみ表示
- */
-export interface AuthenticatedOnlyProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}
+  // ログインボタンUI（ProtectedRouteから移植）
+  function renderLoginButton(): JSX.Element {
+    const handleLogin = () => {
+      const scopes = loginOptions.scopes || ['openid', 'profile'];
+      const authOptions: any = { scopes };
+      
+      if (loginOptions.additionalParams) {
+        authOptions.additionalParams = loginOptions.additionalParams;
+      }
+      
+      login(authOptions);
+    };
 
-export function AuthenticatedOnly({ children, fallback }: AuthenticatedOnlyProps): JSX.Element | null {
-  return (
-    <ConditionalRender
-      authenticated={children}
-      unauthenticated={fallback}
-    />
-  );
-}
+    const containerStyle: React.CSSProperties = {
+      textAlign: 'center',
+      padding: '40px 20px',
+      border: '1px solid #e2e8f0',
+      borderRadius: '8px',
+      backgroundColor: '#f8fafc',
+      ...style
+    };
 
-/**
- * UnauthenticatedOnly - 未認証ユーザーのみ表示
- */
-export interface UnauthenticatedOnlyProps {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
-}
+    const messageStyle: React.CSSProperties = {
+      marginBottom: '20px',
+      color: '#4a5568',
+      fontSize: '16px'
+    };
 
-export function UnauthenticatedOnly({ children, fallback }: UnauthenticatedOnlyProps): JSX.Element | null {
-  return (
-    <ConditionalRender
-      unauthenticated={children}
-      authenticated={fallback}
-    />
-  );
+    const buttonStyle: React.CSSProperties = {
+      backgroundColor: '#4f46e5',
+      color: 'white',
+      padding: '12px 24px',
+      border: 'none',
+      borderRadius: '6px',
+      fontSize: '16px',
+      cursor: 'pointer',
+      transition: 'background-color 0.2s',
+      opacity: isLoading ? 0.6 : 1
+    };
+
+    return (
+      <div className={className} style={containerStyle}>
+        <div style={messageStyle}>
+          {loginMessage}
+        </div>
+        <button
+          onClick={handleLogin}
+          disabled={isLoading}
+          style={buttonStyle}
+          onMouseOver={(e) => {
+            if (!isLoading) {
+              e.currentTarget.style.backgroundColor = '#4338ca';
+            }
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.backgroundColor = '#4f46e5';
+          }}
+        >
+          {isLoading ? 'ログイン中...' : loginButtonText}
+        </button>
+      </div>
+    );
+  }
 }
