@@ -4,516 +4,554 @@ noraneko-id バックエンドの主要ユースケースをUML形式で説明�
 
 ## システム全体ユースケース図
 
-```plantuml
-@startuml
-!define RECTANGLE class
-
-actor "一般ユーザー" as User
-actor "クライアントアプリ開発者" as Developer
-actor "システム管理者" as Admin
-
-rectangle "noraneko-id System" {
-  
-  package "認証・認可" {
-    usecase "パスワード登録" as UC1
-    usecase "パスワードログイン" as UC2
-    usecase "SNS連携ログイン" as UC3
-    usecase "ログアウト" as UC4
-    usecase "プロフィール取得" as UC5
-    usecase "セッション管理" as UC6
-  }
-  
-  package "OAuth2フロー" {
-    usecase "認可リクエスト" as UC7
-    usecase "同意画面表示" as UC8
-    usecase "認可コード発行" as UC9
-    usecase "アクセストークン発行" as UC10
-    usecase "ユーザー情報取得" as UC11
-    usecase "トークン取り消し" as UC12
-    usecase "トークンリフレッシュ" as UC13
-  }
-  
-  package "クライアント管理" {
-    usecase "クライアント登録" as UC14
-    usecase "クライアント設定変更" as UC15
-    usecase "クライアント削除" as UC16
-    usecase "クライアント一覧表示" as UC17
-    usecase "クライアントシークレット再生成" as UC18
-  }
-  
-  package "SNS連携管理" {
-    usecase "プロバイダー一覧取得" as UC19
-    usecase "Google認証連携" as UC20
-    usecase "GitHub認証連携" as UC21
-    usecase "LINE認証連携" as UC22
-  }
-}
-
-' ユーザーの関連
-User --> UC1
-User --> UC2
-User --> UC3
-User --> UC4
-User --> UC5
-
-' 開発者の関連
-Developer --> UC7
-Developer --> UC8
-Developer --> UC9
-Developer --> UC10
-Developer --> UC11
-Developer --> UC12
-Developer --> UC13
-Developer --> UC14
-Developer --> UC15
-Developer --> UC16
-Developer --> UC17
-Developer --> UC18
-
-' 管理者の関連
-Admin --> UC14
-Admin --> UC15
-Admin --> UC16
-Admin --> UC17
-Admin --> UC18
-Admin --> UC19
-
-' システム連携
-UC3 --> UC20
-UC3 --> UC21
-UC3 --> UC22
-
-' 依存関係
-UC2 ..> UC6 : includes
-UC3 ..> UC6 : includes
-UC7 ..> UC8 : includes
-UC9 ..> UC10 : extends
-UC10 ..> UC13 : extends
-
-@enduml
+```mermaid
+graph TB
+    %% Actors
+    User[👤 一般ユーザー]
+    Developer[👨‍💻 クライアントアプリ開発者]
+    Admin[⚙️ システム管理者]
+    
+    %% noraneko-id System
+    subgraph "noraneko-id System"
+        
+        subgraph "認証・認可"
+            UC1[パスワード登録]
+            UC2[パスワードログイン]
+            UC3[SNS連携ログイン]
+            UC4[ログアウト]
+            UC5[プロフィール取得]
+            UC6[セッション管理]
+        end
+        
+        subgraph "OAuth2フロー"
+            UC7[認可リクエスト]
+            UC8[同意画面表示]
+            UC9[認可コード発行]
+            UC10[アクセストークン発行]
+            UC11[ユーザー情報取得]
+            UC12[トークン取り消し]
+            UC13[トークンリフレッシュ]
+        end
+        
+        subgraph "クライアント管理"
+            UC14[クライアント登録]
+            UC15[クライアント設定変更]
+            UC16[クライアント削除]
+            UC17[クライアント一覧表示]
+            UC18[クライアントシークレット再生成]
+        end
+        
+        subgraph "SNS連携管理"
+            UC19[プロバイダー一覧取得]
+            UC20[Google認証連携]
+            UC21[GitHub認証連携]
+            UC22[LINE認証連携]
+        end
+    end
+    
+    %% User relationships
+    User --> UC1
+    User --> UC2
+    User --> UC3
+    User --> UC4
+    User --> UC5
+    
+    %% Developer relationships
+    Developer --> UC7
+    Developer --> UC8
+    Developer --> UC9
+    Developer --> UC10
+    Developer --> UC11
+    Developer --> UC12
+    Developer --> UC13
+    Developer --> UC14
+    Developer --> UC15
+    Developer --> UC16
+    Developer --> UC17
+    Developer --> UC18
+    
+    %% Admin relationships
+    Admin --> UC14
+    Admin --> UC15
+    Admin --> UC16
+    Admin --> UC17
+    Admin --> UC18
+    Admin --> UC19
+    
+    %% System integrations
+    UC3 --> UC20
+    UC3 --> UC21
+    UC3 --> UC22
+    
+    %% Dependencies
+    UC2 -.-> UC6
+    UC3 -.-> UC6
+    UC7 -.-> UC8
+    UC9 -.-> UC10
+    UC10 -.-> UC13
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe
+    classDef systemClass fill:#f3e5f5
+    classDef adminClass fill:#fff3e0
+    
+    class User userClass
+    class Admin adminClass
+    class Developer systemClass
 ```
 
 ## 1. 認証・認可ユースケース
 
 ### 1.1 パスワード認証フロー
 
-```plantuml
-@startuml
-actor "ユーザー" as User
-actor "クライアントアプリ" as ClientApp
-
-rectangle "認証システム" {
-  usecase "ユーザー登録\n(Password)" as Register
-  usecase "メール重複チェック" as EmailCheck
-  usecase "ユーザー名重複チェック" as UsernameCheck
-  usecase "パスワードハッシュ化" as HashPassword
-  usecase "認証プロバイダー作成" as CreateProvider
-  
-  usecase "ログイン\n(Password)" as Login
-  usecase "認証情報検証" as ValidateAuth
-  usecase "セッション作成" as CreateSession
-  usecase "クッキー設定" as SetCookie
-}
-
-User --> Register
-ClientApp --> Register
-
-Register ..> EmailCheck : includes
-Register ..> UsernameCheck : includes
-Register ..> HashPassword : includes
-Register ..> CreateProvider : includes
-
-User --> Login
-ClientApp --> Login
-
-Login ..> ValidateAuth : includes
-Login ..> CreateSession : includes
-Login ..> SetCookie : includes
-
-note right of Register
-  マルチテナント:
-  - client_id必須
-  - クライアントスコープ内で重複チェック
-end note
-
-note right of Login
-  マルチテナント検証:
-  - ユーザーがクライアントに属するかチェック
-  - SNSユーザーはパスワードなし
-end note
-
-@enduml
+```mermaid
+graph TD
+    %% Actors
+    User[👤 ユーザー]
+    ClientApp[📱 クライアントアプリ]
+    
+    %% Authentication System
+    subgraph "認証システム"
+        %% Registration Flow
+        Register[ユーザー登録<br/>Password]
+        EmailCheck[メール重複チェック]
+        UsernameCheck[ユーザー名重複チェック]
+        HashPassword[パスワードハッシュ化]
+        CreateProvider[認証プロバイダー作成]
+        
+        %% Login Flow
+        Login[ログイン<br/>Password]
+        ValidateAuth[認証情報検証]
+        CreateSession[セッション作成]
+        SetCookie[クッキー設定]
+    end
+    
+    %% User interactions
+    User --> Register
+    ClientApp --> Register
+    User --> Login
+    ClientApp --> Login
+    
+    %% Registration process
+    Register --> EmailCheck
+    Register --> UsernameCheck
+    Register --> HashPassword
+    Register --> CreateProvider
+    
+    %% Login process
+    Login --> ValidateAuth
+    Login --> CreateSession
+    Login --> SetCookie
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe
+    classDef appClass fill:#f3e5f5
+    classDef processClass fill:#fff3e0
+    
+    class User userClass
+    class ClientApp appClass
+    class Register,Login processClass
 ```
+
+**マルチテナント対応:**
+- **client_id必須**: 全ての認証でクライアントID指定
+- **スコープ分離**: クライアント内でのみ重複チェック
+- **SNS対応**: パスワードなしユーザーも対応
 
 ### 1.2 SNS連携認証フロー
 
-```plantuml
-@startuml
-actor "ユーザー" as User
-actor "クライアントアプリ" as ClientApp
-actor "SNSプロバイダー" as SNS
-
-rectangle "OAuth2認証システム" {
-  usecase "SNS認証開始" as StartSNS
-  usecase "プロバイダー選択" as SelectProvider
-  usecase "SNS認証リダイレクト" as RedirectSNS
-  usecase "認証コールバック処理" as HandleCallback
-  usecase "ユーザー情報取得" as GetUserInfo
-  usecase "ユーザー作成/更新" as UpsertUser
-  usecase "認証プロバイダー連携" as LinkProvider
-}
-
-User --> StartSNS
-ClientApp --> StartSNS
-
-StartSNS ..> SelectProvider : includes
-StartSNS ..> RedirectSNS : includes
-
-SNS --> HandleCallback
-HandleCallback ..> GetUserInfo : includes
-HandleCallback ..> UpsertUser : includes
-HandleCallback ..> LinkProvider : includes
-
-note right of StartSNS
-  OAuth2パラメータ:
-  /oauth2/authorize?
-  identity_provider=google&
-  client_id=xxx&
-  redirect_uri=xxx
-end note
-
-note right of UpsertUser
-  マルチテナント:
-  - 同じSNSアカウントでも
-    クライアント別に独立ユーザー
-  - provider_user_id + client_id で一意性
-end note
-
-@enduml
+```mermaid
+graph TD
+    %% Actors
+    User[👤 ユーザー]
+    ClientApp[📱 クライアントアプリ]
+    SNS[🔗 SNSプロバイダー]
+    
+    %% OAuth2 Authentication System
+    subgraph "OAuth2認証システム"
+        StartSNS[SNS認証開始]
+        SelectProvider[プロバイダー選択]
+        RedirectSNS[SNS認証リダイレクト]
+        HandleCallback[認証コールバック処理]
+        GetUserInfo[ユーザー情報取得]
+        UpsertUser[ユーザー作成/更新]
+        LinkProvider[認証プロバイダー連携]
+    end
+    
+    %% Flow
+    User --> StartSNS
+    ClientApp --> StartSNS
+    
+    StartSNS --> SelectProvider
+    StartSNS --> RedirectSNS
+    
+    SNS --> HandleCallback
+    HandleCallback --> GetUserInfo
+    HandleCallback --> UpsertUser
+    HandleCallback --> LinkProvider
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe
+    classDef appClass fill:#f3e5f5
+    classDef snsClass fill:#e8f5e8
+    classDef processClass fill:#fff3e0
+    
+    class User userClass
+    class ClientApp appClass
+    class SNS snsClass
+    class StartSNS,HandleCallback processClass
 ```
+
+**OAuth2統合パラメータ:**
+```
+GET /oauth2/authorize?
+  identity_provider=google&
+  client_id=demo-client&
+  redirect_uri=https://app.com/callback
+```
+
+**マルチテナント設計:**
+- **完全分離**: 同じSNSアカウントでもクライアント別に独立ユーザー
+- **一意性保証**: `provider_user_id + client_id` で重複回避
+- **データ独立**: 各クライアントが独自のユーザーベース
 
 ## 2. OAuth2フローユースケース
 
 ### 2.1 Authorization Code Flow
 
-```plantuml
-@startuml
-actor "リソースオーナー\n(ユーザー)" as User
-actor "クライアント\n(アプリ)" as Client
-actor "認可サーバー\n(noraneko-id)" as AuthServer
-
-rectangle "OAuth2 Authorization Code Flow" {
-  usecase "認可リクエスト" as AuthRequest
-  usecase "ユーザー認証確認" as CheckAuth
-  usecase "同意画面表示" as ShowConsent
-  usecase "同意確認" as ConfirmConsent
-  usecase "認可コード発行" as IssueAuthCode
-  usecase "トークンリクエスト" as TokenRequest
-  usecase "クライアント認証" as ClientAuth
-  usecase "アクセストークン発行" as IssueAccessToken
-  usecase "リフレッシュトークン発行" as IssueRefreshToken
-}
-
-User --> AuthRequest
-Client --> AuthRequest
-
-AuthRequest ..> CheckAuth : includes
-CheckAuth ..> ShowConsent : extends
-ShowConsent ..> ConfirmConsent : includes
-ConfirmConsent ..> IssueAuthCode : includes
-
-Client --> TokenRequest
-TokenRequest ..> ClientAuth : includes
-TokenRequest ..> IssueAccessToken : includes
-TokenRequest ..> IssueRefreshToken : includes
-
-note right of AuthRequest
-  PKCEサポート:
-  - code_challenge
-  - code_challenge_method=S256
-  
-  SNS連携サポート:
-  - identity_provider=google
-end note
-
-note right of TokenRequest
-  グラントタイプ:
-  - authorization_code
-  - refresh_token
-  
-  クライアント認証:
-  - client_secret (confidential)
-  - PKCE (public)
-end note
-
-@enduml
+```mermaid
+graph TD
+    %% Actors
+    User[👤 リソースオーナー<br/>ユーザー]
+    Client[📱 クライアント<br/>アプリ]
+    AuthServer[🏛️ 認可サーバー<br/>noraneko-id]
+    
+    %% OAuth2 Flow
+    subgraph "OAuth2 Authorization Code Flow"
+        AuthRequest[認可リクエスト]
+        CheckAuth[ユーザー認証確認]
+        ShowConsent[同意画面表示]
+        ConfirmConsent[同意確認]
+        IssueAuthCode[認可コード発行]
+        
+        TokenRequest[トークンリクエスト]
+        ClientAuth[クライアント認証]
+        IssueAccessToken[アクセストークン発行]
+        IssueRefreshToken[リフレッシュトークン発行]
+    end
+    
+    %% Flow connections
+    User --> AuthRequest
+    Client --> AuthRequest
+    AuthRequest --> CheckAuth
+    CheckAuth --> ShowConsent
+    ShowConsent --> ConfirmConsent
+    ConfirmConsent --> IssueAuthCode
+    
+    Client --> TokenRequest
+    TokenRequest --> ClientAuth
+    TokenRequest --> IssueAccessToken
+    TokenRequest --> IssueRefreshToken
+    
+    %% Styling
+    classDef userClass fill:#e1f5fe
+    classDef clientClass fill:#f3e5f5
+    classDef serverClass fill:#e8f5e8
+    classDef flowClass fill:#fff3e0
+    
+    class User userClass
+    class Client clientClass
+    class AuthServer serverClass
+    class AuthRequest,TokenRequest flowClass
 ```
+
+**PKCE・SNS連携サポート:**
+- **PKCE**: `code_challenge`, `code_challenge_method=S256`
+- **SNS連携**: `identity_provider=google`
+
+**対応グラントタイプ:**
+- `authorization_code` - 標準認可コードフロー
+- `refresh_token` - トークンリフレッシュ
+
+**クライアント認証:**
+- **Confidential Client**: `client_secret`
+- **Public Client**: PKCE使用
 
 ### 2.2 User Info Endpoint
 
-```plantuml
-@startuml
-actor "クライアント" as Client
-
-rectangle "UserInfo Endpoint" {
-  usecase "ユーザー情報リクエスト" as UserInfoRequest
-  usecase "アクセストークン検証" as ValidateToken
-  usecase "スコープ確認" as CheckScope
-  usecase "ユーザー情報取得" as GetUserInfo
-  usecase "レスポンス生成" as GenerateResponse
-}
-
-Client --> UserInfoRequest
-
-UserInfoRequest ..> ValidateToken : includes
-ValidateToken ..> CheckScope : includes
-CheckScope ..> GetUserInfo : includes
-GetUserInfo ..> GenerateResponse : includes
-
-note right of UserInfoRequest
-  Bearer Token認証:
-  Authorization: Bearer <access_token>
-end note
-
-note right of CheckScope
-  スコープ別情報提供:
-  - openid: sub (user_id)
-  - profile: username, display_name
-  - email: email, email_verified
-end note
-
-@enduml
+```mermaid
+graph LR
+    Client[📱 クライアント] --> UserInfoRequest[ユーザー情報リクエスト]
+    UserInfoRequest --> ValidateToken[トークン検証]
+    ValidateToken --> CheckScope[スコープ確認]
+    CheckScope --> GetUserInfo[ユーザー情報取得]
+    GetUserInfo --> GenerateResponse[レスポンス生成]
+    
+    %% Styling
+    classDef clientClass fill:#f3e5f5
+    classDef processClass fill:#fff3e0
+    
+    class Client clientClass
+    class UserInfoRequest,ValidateToken,CheckScope processClass
 ```
+
+**Bearer Token認証:**
+```
+Authorization: Bearer <access_token>
+```
+
+**スコープ別情報提供:**
+- **openid**: `sub` (user_id)
+- **profile**: `username`, `display_name`
+- **email**: `email`, `email_verified`
 
 ## 3. 管理機能ユースケース
 
 ### 3.1 クライアント管理
 
-```plantuml
-@startuml
-actor "システム管理者" as Admin
-actor "クライアント開発者" as Developer
-
-rectangle "クライアント管理システム" {
-  usecase "クライアント登録" as CreateClient
-  usecase "クライアント情報設定" as SetClientInfo
-  usecase "リダイレクトURI設定" as SetRedirectURI
-  usecase "スコープ設定" as SetScopes
-  usecase "クライアントタイプ設定" as SetClientType
-  
-  usecase "クライアント一覧表示" as ListClients
-  usecase "クライアント詳細表示" as ShowClient
-  usecase "クライアント更新" as UpdateClient
-  usecase "クライアント削除" as DeleteClient
-  usecase "シークレット再生成" as RegenerateSecret
-}
-
-Admin --> CreateClient
-Developer --> CreateClient
-
-CreateClient ..> SetClientInfo : includes
-CreateClient ..> SetRedirectURI : includes
-CreateClient ..> SetScopes : includes
-CreateClient ..> SetClientType : includes
-
-Admin --> ListClients
-Developer --> ListClients
-
-Admin --> ShowClient
-Developer --> ShowClient
-
-Admin --> UpdateClient
-Developer --> UpdateClient
-
-Admin --> DeleteClient
-
-Admin --> RegenerateSecret
-Developer --> RegenerateSecret
-
-note right of CreateClient
-  クライアント情報:
-  - 名前、説明
-  - ロゴURL、ウェブサイト
-  - プライバシーポリシー
-  - 利用規約
-  - サポートメール
-end note
-
-note right of SetClientType
-  クライアントタイプ:
-  - confidential: client_secret有り
-  - public: PKCE使用
-  
-  セキュリティ設定:
-  - 同意画面必須/スキップ
-  - 信頼済みクライアント
-end note
-
-@enduml
+```mermaid
+graph TB
+    %% Actors
+    Admin[⚙️ システム管理者]
+    Developer[👨‍💻 クライアント開発者]
+    
+    %% Client Management System
+    subgraph "クライアント管理システム"
+        %% Core operations
+        CreateClient[クライアント登録]
+        ListClients[クライアント一覧表示]
+        ShowClient[クライアント詳細表示]
+        UpdateClient[クライアント更新]
+        DeleteClient[クライアント削除]
+        RegenerateSecret[シークレット再生成]
+        
+        %% Settings
+        SetClientInfo[クライアント情報設定]
+        SetRedirectURI[リダイレクトURI設定]
+        SetScopes[スコープ設定]
+        SetClientType[クライアントタイプ設定]
+    end
+    
+    %% User interactions
+    Admin --> CreateClient
+    Developer --> CreateClient
+    Admin --> ListClients
+    Developer --> ListClients
+    Admin --> ShowClient
+    Developer --> ShowClient
+    Admin --> UpdateClient
+    Developer --> UpdateClient
+    Admin --> DeleteClient
+    Admin --> RegenerateSecret
+    Developer --> RegenerateSecret
+    
+    %% Includes relationships
+    CreateClient -.-> SetClientInfo
+    CreateClient -.-> SetRedirectURI
+    CreateClient -.-> SetScopes
+    CreateClient -.-> SetClientType
+    
+    %% Styling
+    classDef adminClass fill:#fff3e0
+    classDef devClass fill:#e3f2fd
+    classDef systemClass fill:#f3e5f5
+    
+    class Admin adminClass
+    class Developer devClass
+    class CreateClient,UpdateClient systemClass
 ```
+
+**クライアント情報設定内容:**
+- **基本情報**: 名前、説明、ロゴURL、ウェブサイト
+- **規約・サポート**: プライバシーポリシー、利用規約、サポートメール
+- **セキュリティ**: 同意画面必須/スキップ、信頼済みクライアント設定
+
+**クライアントタイプ:**
+- **confidential**: client_secret使用、サーバーサイドアプリ向け
+- **public**: PKCE使用、SPAアプリ・モバイルアプリ向け
 
 ### 3.2 ユーザー管理（管理機能）
 
-```plantuml
-@startuml
-actor "システム管理者" as Admin
-
-rectangle "ユーザー管理システム" {
-  usecase "ユーザー一覧表示" as ListUsers
-  usecase "ユーザー検索" as SearchUsers
-  usecase "ユーザー詳細表示" as ShowUser
-  usecase "ユーザー状態変更" as ChangeUserStatus
-  usecase "認証プロバイダー確認" as ViewProviders
-  usecase "セッション管理" as ManageSessions
-  usecase "アクセストークン管理" as ManageTokens
-}
-
-Admin --> ListUsers
-Admin --> SearchUsers
-Admin --> ShowUser
-Admin --> ChangeUserStatus
-Admin --> ViewProviders
-Admin --> ManageSessions
-Admin --> ManageTokens
-
-ListUsers ..> SearchUsers : extends
-ShowUser ..> ViewProviders : includes
-ShowUser ..> ManageSessions : includes
-ShowUser ..> ManageTokens : includes
-
-note right of SearchUsers
-  検索条件:
-  - クライアント別
-  - メールアドレス
-  - ユーザー名
-  - 認証プロバイダー
-  - 登録日時範囲
-  - 最終ログイン日時
-end note
-
-note right of ChangeUserStatus
-  ユーザー操作:
-  - アカウント有効化/無効化
-  - メール認証状態変更
-  - パスワードリセット強制
-  - セッション全削除
-end note
-
-@enduml
+```mermaid
+graph LR
+    Admin[⚙️ システム管理者] --> UserMgmt[ユーザー管理システム]
+    
+    subgraph UserMgmt["ユーザー管理機能"]
+        ListUsers[ユーザー一覧表示]
+        SearchUsers[ユーザー検索]
+        ShowUser[ユーザー詳細表示]
+        ChangeStatus[ユーザー状態変更]
+        ViewProviders[認証プロバイダー確認]
+        ManageSessions[セッション管理]
+        ManageTokens[アクセストークン管理]
+    end
+    
+    %% Core flows
+    UserMgmt --> ListUsers
+    UserMgmt --> SearchUsers
+    UserMgmt --> ShowUser
+    UserMgmt --> ChangeStatus
+    
+    %% Detail management
+    ShowUser --> ViewProviders
+    ShowUser --> ManageSessions
+    ShowUser --> ManageTokens
+    
+    %% Search extends list
+    ListUsers -.-> SearchUsers
+    
+    classDef adminClass fill:#fff3e0
+    classDef systemClass fill:#f3e5f5
+    
+    class Admin adminClass
+    class UserMgmt,ShowUser systemClass
 ```
+
+**検索・フィルタ条件:**
+- **クライアント別**: テナント分離によるクライアント単位表示
+- **識別情報**: メールアドレス、ユーザー名での検索
+- **認証方式**: パスワード、Google、GitHub、LINE等のプロバイダー別
+- **時期条件**: 登録日時範囲、最終ログイン日時での絞り込み
+
+**ユーザー状態管理:**
+- **アカウント制御**: 有効化/無効化、アカウントロック
+- **認証状態**: メール認証状態変更、パスワードリセット強制
+- **セッション制御**: アクティブセッション全削除、強制ログアウト
 
 ## 4. エラーハンドリングユースケース
 
 ### 4.1 認証エラー処理
 
-```plantuml
-@startuml
-rectangle "エラーハンドリング" {
-  usecase "認証失敗" as AuthFailure
-  usecase "無効なクライアント" as InvalidClient
-  usecase "無効なリダイレクトURI" as InvalidRedirectURI
-  usecase "無効なスコープ" as InvalidScope
-  usecase "アクセス拒否" as AccessDenied
-  usecase "サーバーエラー" as ServerError
-  
-  usecase "エラーログ記録" as LogError
-  usecase "エラーレスポンス生成" as GenerateErrorResponse
-  usecase "リダイレクトエラー処理" as RedirectError
+```mermaid
+graph TD
+    %% Error Types
+    subgraph "認証エラー種別"
+        AuthFailure[🔐 認証失敗]
+        InvalidClient[❌ 無効なクライアント]
+        InvalidRedirectURI[🔗 無効なリダイレクトURI]
+        InvalidScope[📋 無効なスコープ]
+        AccessDenied[🚫 アクセス拒否]
+        ServerError[⚠️ サーバーエラー]
+    end
+    
+    %% Error Handling Processes
+    subgraph "エラー処理"
+        LogError[📝 エラーログ記録]
+        GenerateErrorResponse[📄 エラーレスポンス生成]
+        RedirectError[↩️ リダイレクトエラー処理]
+    end
+    
+    %% Error flows
+    AuthFailure --> LogError
+    InvalidClient --> LogError
+    InvalidRedirectURI --> LogError
+    InvalidScope --> LogError
+    AccessDenied --> LogError
+    ServerError --> LogError
+    
+    %% Response generation
+    AuthFailure --> GenerateErrorResponse
+    InvalidClient --> GenerateErrorResponse
+    ServerError --> GenerateErrorResponse
+    
+    %% Redirect handling
+    InvalidRedirectURI --> RedirectError
+    InvalidScope --> RedirectError
+    AccessDenied --> RedirectError
+    
+    %% Styling
+    classDef errorClass fill:#ffebee
+    classDef processClass fill:#e8f5e8
+    
+    class AuthFailure,InvalidClient,InvalidRedirectURI,InvalidScope,AccessDenied,ServerError errorClass
+    class LogError,GenerateErrorResponse,RedirectError processClass
+```
+
+**エラーログ記録レベル:**
+- **WARN**: 認証失敗（ユーザー起因）
+- **ERROR**: システムエラー、無効クライアント
+- **INFO**: 正常なアクセス拒否（同意画面で拒否）
+
+**ログ記録内容:**
+- エラーコード・メッセージ
+- ユーザーID（認証済みの場合）
+- クライアントID・IPアドレス・User-Agent
+- リクエストパラメータ（機密情報除く）
+
+**OAuth2エラーレスポンス形式:**
+```json
+{
+  "error": "invalid_request",
+  "error_description": "日本語エラー説明",
+  "error_uri": "https://docs.noraneko-id.com/errors/invalid_request"
 }
-
-AuthFailure ..> LogError : includes
-InvalidClient ..> LogError : includes
-InvalidRedirectURI ..> LogError : includes
-InvalidScope ..> LogError : includes
-AccessDenied ..> LogError : includes
-ServerError ..> LogError : includes
-
-AuthFailure ..> GenerateErrorResponse : includes
-InvalidClient ..> GenerateErrorResponse : includes
-ServerError ..> GenerateErrorResponse : includes
-
-InvalidRedirectURI ..> RedirectError : includes
-InvalidScope ..> RedirectError : includes
-AccessDenied ..> RedirectError : includes
-
-note right of LogError
-  ログレベル:
-  - AuthFailure: WARN
-  - InvalidClient: ERROR
-  - ServerError: ERROR
-  
-  ログ内容:
-  - エラーコード
-  - ユーザーID（あれば）
-  - クライアントID
-  - IPアドレス
-  - User-Agent
-end note
-
-note right of GenerateErrorResponse
-  OAuth2エラーレスポンス:
-  {
-    "error": "invalid_request",
-    "error_description": "説明文",
-    "error_uri": "詳細URL"
-  }
-end note
-
-@enduml
 ```
 
 ## 5. セキュリティユースケース
 
 ### 5.1 セキュリティ監視
 
-```plantuml
-@startuml
-actor "セキュリティ監視システム" as Monitor
-actor "システム管理者" as Admin
-
-rectangle "セキュリティ機能" {
-  usecase "不正ログイン検知" as DetectSuspiciousLogin
-  usecase "レート制限適用" as ApplyRateLimit
-  usecase "IPアドレス監視" as MonitorIP
-  usecase "異常パターン検知" as DetectAnomalies
-  usecase "セキュリティアラート" as SecurityAlert
-  
-  usecase "アカウントロック" as LockAccount
-  usecase "IPアドレスブロック" as BlockIP
-  usecase "緊急アクセス停止" as EmergencyStop
-}
-
-Monitor --> DetectSuspiciousLogin
-Monitor --> ApplyRateLimit
-Monitor --> MonitorIP
-Monitor --> DetectAnomalies
-
-DetectSuspiciousLogin ..> SecurityAlert : includes
-DetectAnomalies ..> SecurityAlert : includes
-
-SecurityAlert ..> LockAccount : extends
-SecurityAlert ..> BlockIP : extends
-SecurityAlert ..> EmergencyStop : extends
-
-Admin --> LockAccount
-Admin --> BlockIP
-Admin --> EmergencyStop
-
-note right of DetectSuspiciousLogin
-  検知パターン:
-  - 短時間での大量ログイン試行
-  - 異なるIPからの同時ログイン
-  - 通常と異なる地理的位置
-  - 異常なUser-Agent
-end note
-
-note right of ApplyRateLimit
-  レート制限:
-  - /auth/login: 5回/分
-  - /auth/register: 3回/分
-  - /oauth2/token: 10回/分
-  - IP別、ユーザー別制限
-end note
-
-@enduml
+```mermaid
+graph TB
+    %% Actors
+    Monitor[🔍 セキュリティ監視システム]
+    Admin[⚙️ システム管理者]
+    
+    %% Security Features
+    subgraph "セキュリティ監視"
+        DetectLogin[🕵️ 不正ログイン検知]
+        RateLimit[⏱️ レート制限適用]
+        MonitorIP[🌐 IPアドレス監視]
+        DetectAnomalies[📊 異常パターン検知]
+    end
+    
+    subgraph "アラート・対応"
+        SecurityAlert[🚨 セキュリティアラート]
+        LockAccount[🔒 アカウントロック]
+        BlockIP[🚫 IPアドレスブロック]
+        EmergencyStop[🛑 緊急アクセス停止]
+    end
+    
+    %% Monitoring flows
+    Monitor --> DetectLogin
+    Monitor --> RateLimit
+    Monitor --> MonitorIP
+    Monitor --> DetectAnomalies
+    
+    %% Alert generation
+    DetectLogin --> SecurityAlert
+    DetectAnomalies --> SecurityAlert
+    
+    %% Response actions
+    SecurityAlert --> LockAccount
+    SecurityAlert --> BlockIP
+    SecurityAlert --> EmergencyStop
+    
+    %% Admin controls
+    Admin --> LockAccount
+    Admin --> BlockIP
+    Admin --> EmergencyStop
+    
+    %% Styling
+    classDef monitorClass fill:#e3f2fd
+    classDef adminClass fill:#fff3e0
+    classDef alertClass fill:#ffebee
+    classDef actionClass fill:#f3e5f5
+    
+    class Monitor monitorClass
+    class Admin adminClass
+    class SecurityAlert alertClass
+    class LockAccount,BlockIP,EmergencyStop actionClass
 ```
+
+**不正ログイン検知パターン:**
+- **ブルートフォース**: 短時間での大量ログイン試行
+- **分散攻撃**: 異なるIPからの同時ログイン
+- **地理的異常**: 通常と異なる地理的位置からのアクセス
+- **ボット検知**: 異常なUser-Agent、自動化ツール検知
+
+**レート制限設定:**
+- **認証エンドポイント**: `/auth/login` 5回/分、`/auth/register` 3回/分
+- **OAuth2エンドポイント**: `/oauth2/token` 10回/分、`/oauth2/authorize` 20回/分
+- **管理エンドポイント**: `/admin/*` 30回/分
+- **制限単位**: IP別・ユーザー別・クライアント別の階層制限
