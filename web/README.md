@@ -1,36 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Noraneko ID 管理コンソール
 
-## Getting Started
+Noraneko ID の管理者向けWebアプリケーションです。
 
-First, run the development server:
+## 技術スタック
+
+- **Framework**: Next.js 15 (App Router)
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 4
+- **Authentication**: @noraneko/id-react SDK
+- **Deployment**: Vercel
+
+## 開発環境セットアップ
+
+### 前提条件
+
+- Node.js 20.x 以上
+- npm または yarn
+- Noraneko ID バックエンドサーバーが起動していること
+
+### インストール
+
+```bash
+# SDKのビルド（初回のみ）
+cd ../packages/sdk && npm install && npm run build
+cd ../react && npm install && npm run build
+
+# 管理アプリのセットアップ
+cd ../../web
+npm install
+```
+
+### 環境変数の設定
+
+```bash
+cp .env.example .env.local
+```
+
+`.env.local` を編集して、以下の値を設定：
+
+```env
+# APIエンドポイント（ローカル開発用）
+NEXT_PUBLIC_API_URL=http://localhost:8080
+
+# OAuth2設定（管理アプリ用）
+NEXT_PUBLIC_OAUTH2_CLIENT_ID=admin-dashboard-001
+```
+
+### 開発サーバーの起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+http://localhost:3000 でアプリケーションにアクセスできます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 利用可能なスクリプト
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev          # 開発サーバー起動
+npm run build        # プロダクションビルド
+npm run start        # プロダクションサーバー起動
+npm run lint         # ESLintチェック
+npm run type-check   # TypeScriptの型チェック
+npm run analyze      # バンドルサイズ分析
+```
 
-## Learn More
+## プロジェクト構成
 
-To learn more about Next.js, take a look at the following resources:
+```
+web/
+├── src/
+│   ├── app/                 # Next.js App Router
+│   │   ├── layout.tsx       # ルートレイアウト（Server Component）
+│   │   ├── providers.tsx    # Client Providers
+│   │   ├── error.tsx        # エラーバウンダリ
+│   │   ├── loading.tsx      # ローディング状態
+│   │   ├── dashboard/       # ダッシュボードページ
+│   │   ├── login/           # ログインページ
+│   │   └── api/            # API Routes
+│   │       └── auth/       # 認証API
+│   ├── components/         # 共有コンポーネント
+│   ├── lib/               # ユーティリティ関数
+│   └── types/             # TypeScript型定義
+├── public/                # 静的ファイル
+├── next.config.ts         # Next.js設定
+├── tsconfig.json          # TypeScript設定
+├── tailwind.config.js     # Tailwind CSS設定
+└── vercel.json           # Vercelデプロイ設定
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 主な機能
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 🔐 **OAuth2認証**: noraneko-id SDKによる安全な認証
+- 📊 **ダッシュボード**: 統計情報とユーザー管理
+- 🔄 **自動トークンリフレッシュ**: セッションの自動更新
+- 💾 **TTLキャッシュ**: ユーザー情報の効率的な管理
+- 🛡️ **セキュリティ**: HttpOnly Cookie、CSRF対策、CSPヘッダー
 
-## Deploy on Vercel
+## デプロイ（Vercel）
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 環境変数の設定
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vercelダッシュボードで以下の環境変数を設定：
+
+- `NEXT_PUBLIC_API_URL`: 本番APIのURL
+- `NEXT_PUBLIC_OAUTH2_CLIENT_ID`: 本番用クライアントID
+
+### デプロイコマンド
+
+```bash
+vercel
+```
+
+または、GitHubと連携して自動デプロイを設定することも可能です。
+
+## セキュリティ
+
+- すべての認証トークンはHttpOnly Cookieで管理
+- CSRF攻撃対策（SameSite Cookie）
+- XSS対策（Content Security Policy）
+- 本番環境では必ずHTTPSを使用してください
+
+## トラブルシューティング
+
+### SDKが見つからないエラー
+
+```bash
+# SDKを再ビルド
+cd ../packages/sdk && npm run build
+cd ../react && npm run build
+```
+
+### 認証エラー
+
+1. バックエンドサーバーが起動しているか確認
+2. 環境変数が正しく設定されているか確認
+3. OAuth2クライアントIDが有効か確認
+
+## ライセンス
+
+MIT

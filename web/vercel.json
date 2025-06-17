@@ -1,0 +1,21 @@
+{
+  "buildCommand": "cd ../packages/sdk && npm install && npm run build && cd ../react && npm install && npm run build && cd ../../web && npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "functions": {
+    "src/app/api/auth/[...slug]/route.ts": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_API_URL": "@noraneko_api_url",
+    "NEXT_PUBLIC_OAUTH2_CLIENT_ID": "@noraneko_oauth2_client_id"
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "regions": ["hnd1"]
+}

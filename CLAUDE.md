@@ -2,99 +2,200 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Common Development Commands
 
-noraneko-id is a Japanese IDaaS (Identity as a Service) system designed for private service developers. The project implements OAuth2 (RFC 6749) compliant authentication services with emphasis on privacy and no third-party cookies.
+### Backend (Go)
+```bash
+# Development server
+cd backend && make run
 
-## Architecture
+# Build application
+cd backend && make build
 
-The system follows a 3-tier architecture:
-- **Frontend**: Next.js with TypeScript (SPA and admin panel) - *Not yet implemented*
-- **Backend**: Go with Gin framework (API server) - **Implemented**
-- **Database**: PostgreSQL - **Implemented**
+# Run tests
+cd backend && make test
 
-## Development Commands
+# Run tests with coverage
+cd backend && go test -cover ./...
 
-### Database
-- Start PostgreSQL: `docker-compose up -d`
-- Stop PostgreSQL: `docker-compose down`
+# Database management
+cd backend && make db-up     # Start PostgreSQL container
+cd backend && make db-down   # Stop PostgreSQL container
+cd backend && make db-reset  # Reset database with fresh data
 
-### Backend
-- Build server: `go build -o bin/noraneko-id cmd/server/main.go`
-- Run server: `./bin/noraneko-id` or `go run cmd/server/main.go`
-- Install dependencies: `go mod tidy`
+# Seed test data
+cd backend && make seed
 
-### Environment Setup
-- Copy environment template: `cp .env.example .env`
-- Edit `.env` file for local configuration
+# Lint (requires golangci-lint)
+cd backend && make lint
 
-## Project Status
+# Format code
+cd backend && make fmt
 
-**Current Implementation Status:**
-- ✅ Go backend foundation with database integration
-- ✅ Complete OAuth2 database schema
-- ✅ OAuth2 endpoints: `/oauth2/authorize`, `/oauth2/token`, `/oauth2/userinfo`, `/oauth2/revoke`
-- ✅ User authentication: `/auth/register`, `/auth/login`, `/auth/logout`, `/auth/profile`
-- ✅ Admin client management: `/admin/clients/*`
-- ✅ JWT token generation and validation
-- ✅ Session-based authentication with cookies
-- ✅ Security middleware (CORS, headers)
-- ❌ Frontend implementation (Next.js)
-- ❌ Production deployment configuration
+# Hot reload development (requires air)
+cd backend && make dev
+```
 
-## API Endpoints
+### Frontend (Next.js)
+```bash
+# Development server (web app)
+cd web && npm run dev
 
-### Authentication
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User login
-- `POST /auth/logout` - User logout
-- `GET /auth/profile` - Get user profile (requires auth)
+# Development server (demo app)
+cd examples/nextjs-demo && npm run dev
 
-### OAuth2
-- `GET /oauth2/authorize` - OAuth2 authorization endpoint
-- `POST /oauth2/token` - OAuth2 token endpoint
-- `GET /oauth2/userinfo` - OAuth2 user info endpoint
-- `POST /oauth2/revoke` - OAuth2 token revocation
+# Build for production
+cd web && npm run build
+cd web && npm run build:prod
 
-### Admin (requires admin role)
-- `POST /admin/clients` - Create OAuth2 client
-- `GET /admin/clients` - List OAuth2 clients
-- `GET /admin/clients/:id` - Get OAuth2 client details
-- `PUT /admin/clients/:id` - Update OAuth2 client
-- `DELETE /admin/clients/:id` - Delete OAuth2 client
-- `POST /admin/clients/:id/regenerate-secret` - Regenerate client secret
+# Type checking
+cd web && npm run type-check
 
-## Core Features (Implemented)
+# Linting
+cd web && npm run lint
 
-- Complete OAuth2 (RFC 6749) implementation with PKCE support
-- User registration and authentication with bcrypt password hashing
-- Session management with secure cookies
-- JWT access token generation and validation
-- OAuth2 client management with admin controls
-- PostgreSQL database with comprehensive schema
-- Security middleware and CORS support
-- Environment-based configuration management
+# Start production server
+cd web && npm run start:prod
+```
 
-## Language and Documentation
+### SDK Development
+```bash
+# Next.js SDK package
+cd packages/nextjs && npm run build
+cd packages/nextjs && npm run dev        # Watch mode
+cd packages/nextjs && npm run validate   # Type-check + lint + test
+```
 
-All documentation and code comments are in Japanese, as this targets Japanese developers and services.
+### Full Stack Development
+```bash
+# Quick setup (all services)
+./setup.sh
 
-## TODO List (2025-01-15更新)
+# Development mode (all services)
+./scripts/dev.sh
 
-### 高優先度
-- [ ] IDaaS UI改善 - 認証画面のUX向上とレスポンシブ対応
+# Run all tests
+./scripts/test.sh (if exists)
+```
 
-### 中優先度
-- [ ] レート制限ミドルウェアの実装 - 認証・OAuth2・管理者エンドポイント別の制限設定
-- [ ] クライアントアプリ用の雛形作成 - OAuth2クライアント実装のサンプルテンプレート
-- [ ] Javascript-SDKのリポジトリ分割 - SDKを独立したリポジトリとして管理
-- [ ] SNS連携の導入 - Google、GitHub、LINE等のソーシャルログイン実装
+## Architecture Overview
 
-### 低優先度
-- [ ] ログ出力の改善 - 構造化ログ、セキュリティイベントログ、デバッグ情報の追加
-- [ ] テストスイートの拡張 - マルチテナント機能、SNS連携基盤、新APIエンドポイントのテスト追加
-- [ ] URL検証ロジックの強化 - リダイレクトURIの厳密な検証（スキーム、ホスト、パス検証）
-- [ ] エラーハンドリングの標準化 - 統一されたエラーレスポンス形式とエラーコード体系化
-- [ ] フロントエンド実装 - Next.js管理画面とデモアプリの実装
-- [ ] 本番環境対応 - Docker化、CI/CD、監視、バックアップ設定
-- [ ] 管理アプリに開発用ドキュメントを公開 - API仕様書、実装ガイドの統合
+noraneko-id is a comprehensive OAuth2 IDaaS (Identity as a Service) solution designed for individual developers and small-scale services. The system implements RFC 6749 compliant OAuth2 with multi-tenant architecture.
+
+### Core Components
+
+**Backend (Go + Gin)**
+- Located in `backend/`
+- OAuth2 server with full RFC 6749 compliance
+- Multi-tenant user management with client-scoped isolation
+- JWT token handling with RS256 signatures
+- PostgreSQL database with GORM ORM
+- Swagger/OpenAPI documentation
+
+**Frontend (Next.js)**
+- Management dashboard in `web/`
+- Next.js 15 with App Router
+- TypeScript and Tailwind CSS
+- Authentication UI components
+
+**SDK Packages**
+- `packages/nextjs/` - Next.js App Router integration
+- React components and hooks for OAuth2 flows
+- Server and client utilities for authentication
+
+### Multi-Tenant Design
+
+The system uses a **client-scoped isolation** model:
+- Each OAuth2 client has isolated user base
+- Users belong to specific clients (not shared across clients)
+- Database schema enforces tenant boundaries via foreign keys
+- All queries are scoped by `client_id`
+
+### API Structure
+
+```
+Authentication:
+- POST /auth/register   - User registration (client-scoped)
+- POST /auth/login      - User login
+- POST /auth/logout     - User logout
+- GET  /auth/profile    - User profile
+
+OAuth2 (RFC 6749):
+- GET  /oauth2/authorize - Authorization endpoint
+- POST /oauth2/token     - Token endpoint  
+- GET  /oauth2/userinfo  - User info endpoint
+- POST /oauth2/revoke    - Token revocation
+
+Admin (Client Management):
+- GET|POST|PUT|DELETE /admin/clients - OAuth2 client CRUD
+```
+
+### Database Schema
+
+Key tables:
+- `o_auth_clients` - OAuth2 client definitions
+- `users` - Multi-tenant users (scoped by client_id)
+- `user_auth_providers` - External OAuth provider links
+- `user_sessions` - Session management 
+- `o_auth_access_tokens` - OAuth2 tokens
+
+### Development Environment
+
+The system uses Docker Compose for local development:
+- PostgreSQL database container
+- Backend runs on `:8080`
+- Frontend runs on `:3000`
+- Demo app runs on `:3001`
+
+### Test Data
+
+After running `make seed`, test accounts available:
+- admin@example.com / password123 (System Admin)
+- user1@example.com / password123 (Limited Admin)
+- user2@example.com / password123 (Regular User)
+
+Test OAuth2 clients:
+- dev-client-001 (Confidential client)
+- test-spa-client (Public SPA client)
+
+## Key Implementation Details
+
+### Security Features
+- bcrypt password hashing (cost=12)
+- JWT tokens with RS256 signatures
+- PKCE support for OAuth2
+- Secure session management with SameSite cookies
+- CSRF protection
+- Input validation and SQL injection prevention
+
+### OAuth2 Flow Implementation
+The system supports Authorization Code flow with PKCE:
+1. Client redirects to `/oauth2/authorize`
+2. User authenticates and consents
+3. Authorization code returned to client
+4. Client exchanges code for access token at `/oauth2/token`
+5. Client uses token to access `/oauth2/userinfo`
+
+### Development Patterns
+- Go follows clean architecture with layered design
+- Handler -> Service -> Repository pattern
+- GORM for database operations
+- Gin for HTTP routing
+- Structured logging throughout
+- Comprehensive error handling with proper HTTP status codes
+
+### Testing Strategy
+- Unit tests for business logic
+- Integration tests for API endpoints
+- Test database isolation
+- Mock external dependencies
+- Use `go test -tags=integration` for integration tests
+
+## Important Notes
+
+- The system enforces strict client isolation - users cannot cross client boundaries
+- Always scope database queries by client_id for multi-tenancy
+- JWT secrets and client secrets are hashed before database storage
+- Session tokens are regenerated on login to prevent session fixation
+- The system is designed to be stateless for horizontal scaling
+- All OAuth2 flows follow RFC 6749 specifications strictly

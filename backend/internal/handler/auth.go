@@ -69,7 +69,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			redirectURI := c.PostForm("redirect_uri")
 			// TODO: 業界標準に合わせてstate tokenに暗号化することを検討
 			// 現在は開発段階のためURLパラメータ直接渡しを継続
-			loginURL := "/login?error=" + url.QueryEscape("メールアドレス、パスワード、クライアントIDを入力してください")
+			loginURL := "/login?error=" + url.QueryEscape("メールアドレス、パスワードを入力してください")
 			if redirectURI != "" {
 				loginURL += "&redirect_uri=" + url.QueryEscape(redirectURI)
 			}

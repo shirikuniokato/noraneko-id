@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { NoranekoIDNextJSProvider } from '@noraneko/id-react/nextjs/client';
+import { Providers } from "./providers";
+import { createAuth } from "@noranekoid/nextjs/server";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,6 +19,14 @@ export const metadata: Metadata = {
   description: "Noraneko ID 管理コンソール",
 };
 
+// 認証エンジンを初期化
+createAuth({
+  clientId: process.env.NEXT_PUBLIC_OAUTH2_CLIENT_ID || 'admin-dashboard-001',
+  issuer: process.env.NEXT_PUBLIC_NORANEKO_ISSUER || 'http://localhost:8080',
+  redirectUri: (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000') + '/api/auth/callback',
+  scopes: ['openid', 'profile', 'email', 'admin'],
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,20 +37,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <NoranekoIDNextJSProvider
-          config={{
-            issuer: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
-            clientId: process.env.NEXT_PUBLIC_OAUTH2_CLIENT_ID || 'admin-dashboard-001',
-            redirectUri: process.env.NEXT_PUBLIC_OAUTH2_REDIRECT_URI || 'http://localhost:3000/api/auth/callback',
-            scopes: ['openid', 'profile', 'email', 'admin'],
-            useHttpOnlyCookies: true,
-            apiRoute: {
-              basePath: '/api/auth',
-            },
-          }}
-        >
+        <Providers>
           {children}
-        </NoranekoIDNextJSProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -1,449 +1,556 @@
-# noraneko-id React SDK Documentation
+# @noranekoid/nextjs
 
-noraneko-id OAuth2認証システム用の React SDK の完全ガイドです。
+OAuth2/OIDC対応のNext.js App Router認証SDK
 
-## 📚 文書一覧
+[![npm version](https://badge.fury.io/js/%40noranekoid%2Fnextjs.svg)](https://badge.fury.io/js/%40noranekoid%2Fnextjs)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/node/v/@noranekoid/nextjs.svg)](https://nodejs.org/)
 
-### [📋 javascript-sdk-requirements.md](./javascript-sdk-requirements.md)
-- JavaScript SDK の要件定義
-- 機能仕様とAPI設計
-- 実装方針とアーキテクチャ
+## 特徴
 
-## 🎯 SDK概要
+- 🚀 **Next.js App Router完全対応** - Server Components、Client Components両方をサポート
+- 🔐 **RFC 6749準拠** - OAuth2標準仕様に準拠した実装
+- 🔍 **自動エンドポイント発見** - .well-known OpenID Connect Discoveryでゼロ設定
+- ⚡ **ビルド時Discovery** - 実行時HTTPリクエストなしでVercel最適化
+- 🔄 **自動トークンリフレッシュ** - 期限切れ前に自動的にトークンを更新
+- 🎯 **TypeScript対応** - 完全な型定義を提供
+- 🔗 **ミドルウェアチェイン** - 複数のミドルウェアを組み合わせ可能
+- 🎨 **NextAuth風API** - 親しみやすい統一ハンドラー
 
-### 実装済み機能
-- ✅ **OAuth2認証フロー**: Authorization Code Flow with PKCE (RFC 7636準拠)
-- ✅ **React統合**: Context Provider、Hooks、Components完全実装
-- ✅ **Next.js統合**: App Router対応、Server Components、Middleware
-- ✅ **セキュリティ**: XSS/Open Redirect対策、HttpOnly Cookie対応
-- ✅ **TypeScript**: 完全型安全性、strict mode対応
-- ✅ **自動トークン管理**: リフレッシュ、有効期限監視
-- ✅ **エラーハンドリング**: 詳細なエラー分類と処理
+## インストール
 
-### 対応フレームワーク
-- ✅ **React**: 16.8+ (Hooks対応)
-- ✅ **Next.js**: 14+ (App Router、Server Components)
-- ✅ **TypeScript**: 5+ (strict mode)
-
-## 📦 パッケージ構成
-
-```
-@noraneko/id-react/
-├── /                    # メインReact統合
-│   ├── NoranekoIDProvider   # Context Provider
-│   ├── useNoranekoID        # 統合Hook（唯一のHook）
-│   ├── ConditionalRender    # 条件分岐コンポーネント
-│   └── withAuthRequired     # HOC認証保護
-├── /nextjs              # Next.js統合
-│   ├── /client          # クライアントサイド Provider
-│   ├── /server          # サーバーサイド認証ユーティリティ
-│   ├── /middleware      # 認証ミドルウェア
-│   └── /api             # APIハンドラー
-```
-
-## 🚀 クイックスタート
-
-### インストール
 ```bash
-npm install @noraneko/id-react
+npm install @noranekoid/nextjs
+# または
+yarn add @noranekoid/nextjs
+# または
+pnpm add @noranekoid/nextjs
 ```
 
-### 基本的なReact統合
-```typescript
-import { NoranekoIDProvider, useNoranekoID } from '@noraneko/id-react';
+## クイックスタート
 
-// アプリケーションレベルでプロバイダーを設定
-function App() {
-  return (
-    <NoranekoIDProvider
-      config={{
-        clientId: 'your-client-id',
-        issuer: 'https://id.example.com',
-        redirectUri: window.location.origin + '/auth/callback',
-        scopes: ['openid', 'profile', 'email']
-      }}
-    >
-      <MainApp />
-    </NoranekoIDProvider>
-  );
-}
+### 1. Next.js設定（1行設定）
 
-// コンポーネント内で認証状態を使用
-function MainApp() {
-  const { 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    login, 
-    logout 
-  } = useNoranekoID();
+`next.config.js`を作成し、**1行**で設定：
 
-  if (isLoading) return <div>Loading...</div>;
+```javascript
+const { withNoranekoAuth } = require('@noranekoid/nextjs/config')
 
-  return (
-    <div>
-      {isAuthenticated ? (
-        <div>
-          <p>Welcome, {user?.display_name}</p>
-          <button onClick={() => logout()}>ログアウト</button>
-        </div>
-      ) : (
-        <button onClick={() => login()}>ログイン</button>
-      )}
-    </div>
-  );
-}
+module.exports = withNoranekoAuth({
+  // 既存のNext.js設定があればここに追加
+})
 ```
 
-### Next.js App Router統合
+### 2. 環境変数の設定
 
-#### 1. API Route設定
-```typescript
-// app/api/auth/[...slug]/route.ts
-import { createDefaultNoranekoIDHandler } from '@noraneko/id-react/nextjs/api';
+`.env.local`ファイルを作成し、以下の環境変数を設定します：
 
-export const { GET, POST, DELETE } = createDefaultNoranekoIDHandler();
+```env
+# 必須（.well-known Discovery用）
+NORANEKO_AUTH_ISSUER=https://auth.example.com
+NORANEKO_AUTH_CLIENT_ID=your-client-id
+NORANEKO_AUTH_CLIENT_SECRET=your-client-secret
+
+# オプション（デフォルト値あり）
+NORANEKO_AUTH_REDIRECT_URI=http://localhost:3000/api/auth/callback
+NORANEKO_AUTH_SCOPES=openid,profile,email
 ```
 
-#### 2. Provider設定（HttpOnly Cookie対応）
-```typescript
-// app/layout.tsx
-import { NoranekoIDNextJSProvider } from '@noraneko/id-react/nextjs/client';
+**ビルド時Discovery**: `NORANEKO_AUTH_ISSUER`から自動的に`.well-known/openid-configuration`を取得し、エンドポイントを自動設定します。
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="ja">
-      <body>
-        <NoranekoIDNextJSProvider
-          config={{
-            clientId: process.env.NEXT_PUBLIC_CLIENT_ID!,
-            issuer: process.env.NEXT_PUBLIC_API_URL!,
-            useHttpOnlyCookies: true, // セキュアなHttpOnly Cookie使用
-          }}
-        >
-          {children}
-        </NoranekoIDNextJSProvider>
-      </body>
-    </html>
-  );
-}
+### 3. 認証の初期化
+
+`app/auth.ts`を作成：
+
+```typescript
+import { createAuth } from '@noranekoid/nextjs/server'
+
+// ビルド時Discoveryにより設定は最小限
+createAuth({
+  issuer: process.env.NORANEKO_AUTH_ISSUER!,
+  clientId: process.env.NORANEKO_AUTH_CLIENT_ID!,
+  clientSecret: process.env.NORANEKO_AUTH_CLIENT_SECRET!,
+  // エンドポイントは.well-known Discoveryで自動設定
+  autoRefresh: {
+    enabled: true,
+    refreshThreshold: 5 * 60 * 1000, // 5分前にリフレッシュ
+  }
+})
+
+export { auth } from '@noranekoid/nextjs/server'
 ```
 
-#### 3. Server-side認証
-```typescript
-// app/dashboard/page.tsx
-import { requireAuth, getServerUserInfo } from '@noraneko/id-react/nextjs/server';
+### 4. API Routesの設定
 
-export default async function DashboardPage() {
-  // 認証が必要なページ - 未認証時は自動ログインページにリダイレクト
-  await requireAuth();
-  
-  // サーバーサイドでユーザー情報取得
-  const userInfo = await getServerUserInfo();
-  
-  return (
-    <div>
-      <h1>Dashboard</h1>
-      <p>Welcome, {userInfo?.display_name}</p>
-    </div>
-  );
-}
+`app/api/auth/[...noraneko]/route.ts`を作成：
+
+```typescript
+import { handlers } from '@noranekoid/nextjs/api'
+
+export const { GET, POST } = handlers
 ```
 
-#### 4. Middleware認証保護
-```typescript
-// middleware.ts
-import { NextRequest } from 'next/server';
-import { chain } from '@noraneko/id-react/nextjs/middleware';
-import { authMiddleware } from '@noraneko/id-react/nextjs/middleware';
+### 5. Middlewareの設定（オプション）
 
-export function middleware(request: NextRequest) {
-  return chain([
-    authMiddleware({
-      protectedPaths: ['/dashboard', '/admin'],
-      publicOnlyPaths: ['/login', '/register'],
-      loginUrl: '/login'
-    }),
-  ])(request);
-}
+`middleware.ts`を作成：
+
+```typescript
+import { createAuthMiddleware } from '@noranekoid/nextjs/middleware'
+
+export default createAuthMiddleware({
+  protectedPaths: ['/dashboard', '/profile'],
+  publicOnlyPaths: ['/login'],
+  loginUrl: '/api/auth/login',
+})
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
-};
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+}
 ```
 
-## 📖 詳細ガイド
+### 6. 使用例
 
-### コンポーネント
-
-#### withAuthRequired HOC
-コンポーネント単位で認証保護を行います：
+#### サーバーコンポーネントでの認証状態確認
 
 ```typescript
-import { withAuthRequired } from '@noraneko/id-react';
+import { auth } from '@/app/auth'
 
-function DashboardPage({ noranekoID }: WithNoranekoIDProps) {
+export default async function Page() {
+  const session = await auth()
+  
+  if (!session) {
+    return <div>ログインしてください</div>
+  }
+  
+  return <div>ようこそ、{session.user.name}さん！</div>
+}
+```
+
+#### クライアントコンポーネントでの認証状態確認
+
+```typescript
+'use client'
+import { useAuth } from '@noranekoid/nextjs/client'
+
+export default function UserProfile() {
+  const { data: session, status } = useAuth()
+  
+  if (status === 'loading') return <div>Loading...</div>
+  if (status === 'unauthenticated') return <div>Not logged in</div>
+  
+  return <div>Hello {session?.user.name}!</div>
+}
+```
+
+## 設定オプション
+
+### AuthConfig
+
+```typescript
+interface AuthConfig {
+  // 必須
+  issuer: string              // OAuth2プロバイダーのIssuer URL
+  clientId: string            // クライアントID
+  clientSecret?: string       // クライアントシークレット（サーバーサイドのみ）
+  
+  // オプション
+  scopes?: string[]           // 要求するスコープ（デフォルト: ['openid', 'profile', 'email']）
+  redirectUri?: string        // コールバックURL
+  loginPath?: string          // ログインパス（デフォルト: '/api/auth/login'）
+  callbackPath?: string       // コールバックパス（デフォルト: '/api/auth/callback'）
+  logoutPath?: string         // ログアウトパス（デフォルト: '/api/auth/logout'）
+  cookiePrefix?: string       // Cookieプレフィックス（デフォルト: 'noraneko-auth'）
+  cookieSecure?: boolean      // セキュアCookie（デフォルト: production時true）
+  debug?: boolean             // デバッグモード
+  
+  // 自動リフレッシュ設定
+  autoRefresh?: {
+    enabled?: boolean         // 有効化（デフォルト: false）
+    refreshThreshold?: number // リフレッシュ開始時間（ミリ秒、デフォルト: 300000）
+    maxRetries?: number       // 最大リトライ回数（デフォルト: 3）
+    retryInterval?: number    // リトライ間隔（ミリ秒、デフォルト: 5000）
+  }
+}
+```
+
+## API リファレンス
+
+### サーバーサイド
+
+#### `createAuth(config: AuthConfig): void`
+認証システムを初期化します。ビルド時Discoveryによりエンドポイントが自動設定されます。
+
+```typescript
+createAuth({
+  issuer: 'https://auth.example.com',  // .well-known DiscoveryのベースURL
+  clientId: 'your-client-id',
+  clientSecret: 'your-client-secret',
+  // authorization_endpoint, token_endpoint等は自動設定
+})
+```
+
+#### `auth(): Promise<Session | null>`
+現在の認証セッションを取得します。Server Componentsで使用できます。
+
+```typescript
+const session = await auth()
+if (!session) {
+  // 未認証
+}
+```
+
+### クライアントサイド
+
+#### `SessionProvider`
+認証状態をクライアントコンポーネントで利用可能にするプロバイダー。
+
+```typescript
+import { SessionProvider } from '@noranekoid/nextjs/client'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        <SessionProvider>
+          {children}
+        </SessionProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+#### `useAuth()`
+認証状態を取得するフック。
+
+```typescript
+const { data, status, update } = useAuth()
+// data: Session | null
+// status: 'loading' | 'authenticated' | 'unauthenticated'
+// update: () => Promise<void> - セッションを手動更新
+```
+
+#### `useAuthCallback(options?: UseAuthCallbackOptions)`
+OAuth2コールバックを処理するフック。
+
+```typescript
+interface UseAuthCallbackOptions {
+  onSuccess?: (params: CallbackParams) => void
+  onError?: (error: CallbackError) => void
+  autoRedirect?: boolean  // デフォルト: true
+  redirectTo?: string     // デフォルト: '/'
+}
+```
+
+使用例：
+```typescript
+export default function CallbackPage() {
+  const { status, error } = useAuthCallback({
+    onSuccess: () => console.log('ログイン成功'),
+    onError: (error) => console.error('ログイン失敗:', error),
+  })
+  
+  if (status === 'processing') {
+    return <div>処理中...</div>
+  }
+  
+  if (status === 'error') {
+    return <div>エラー: {error?.message}</div>
+  }
+  
+  return null
+}
+```
+
+### API Routes
+
+#### 統一ハンドラー（推奨）
+
+```typescript
+import { handlers } from '@noranekoid/nextjs/api'
+export const { GET, POST } = handlers
+```
+
+これにより以下のエンドポイントが自動的に作成されます：
+- `GET /api/auth/login` - ログイン開始
+- `GET /api/auth/callback` - OAuth2コールバック
+- `GET /api/auth/logout` - ログアウト
+- `GET /api/auth/token` - 現在のトークン状態取得
+- `POST /api/auth/token` - トークンリフレッシュ
+
+#### カスタムパス設定
+
+```typescript
+import { createHandlers } from '@noranekoid/nextjs/api'
+
+export const { GET, POST } = createHandlers({
+  paths: {
+    login: 'signin',      // /api/auth/signin
+    logout: 'signout',    // /api/auth/signout
+    callback: 'callback', // /api/auth/callback
+    token: 'token'        // /api/auth/token
+  }
+})
+```
+
+### Middleware
+
+#### `createAuthMiddleware(config: MiddlewareConfig)`
+
+```typescript
+interface MiddlewareConfig {
+  protectedPaths?: string[]    // 認証が必要なパス
+  publicOnlyPaths?: string[]   // 未認証時のみアクセス可能なパス
+  loginUrl?: string            // ログインURL
+  callbackUrl?: string         // ログイン後のリダイレクト先
+}
+```
+
+#### ミドルウェアチェイン
+
+複数のミドルウェアを組み合わせる場合：
+
+```typescript
+import { chain, createAuthMiddleware } from '@noranekoid/nextjs/middleware'
+
+const authMiddleware = createAuthMiddleware({
+  protectedPaths: ['/dashboard'],
+})
+
+const customMiddleware = async (request: NextRequest) => {
+  // カスタムロジック
+  return null // 次のミドルウェアへ
+}
+
+export default chain([authMiddleware, customMiddleware])
+```
+
+## エラーハンドリング
+
+SDKは以下のエラークラスを提供します：
+
+```typescript
+import { 
+  NoranekoAuthError,
+  TokenExpiredError,
+  InvalidTokenError,
+  AuthenticationRequiredError,
+  OAuthError 
+} from '@noranekoid/nextjs'
+
+try {
+  const session = await auth()
+} catch (error) {
+  if (error instanceof TokenExpiredError) {
+    // トークン期限切れ
+  } else if (error instanceof AuthenticationRequiredError) {
+    // 認証が必要
+  }
+}
+```
+
+## 実装例
+
+### 保護されたページの実装
+
+```typescript
+// app/dashboard/page.tsx
+import { auth } from '@/app/auth'
+import { redirect } from 'next/navigation'
+
+export default async function DashboardPage() {
+  const session = await auth()
+  
+  if (!session) {
+    redirect('/api/auth/login')
+  }
+  
   return (
     <div>
-      <h1>Welcome, {noranekoID.user?.display_name}</h1>
-      <DashboardContent />
+      <h1>ダッシュボード</h1>
+      <p>ようこそ、{session.user.name}さん</p>
     </div>
-  );
+  )
 }
+```
 
-// 認証保護されたコンポーネントとしてエクスポート
-export default withAuthRequired(DashboardPage, {
-  requiredScopes: ['dashboard'],
-  loginOptions: {
-    scopes: ['openid', 'profile', 'dashboard']
+### ログイン/ログアウトボタン
+
+```typescript
+'use client'
+import { useAuth } from '@noranekoid/nextjs/client'
+
+export function AuthButton() {
+  const { data: session, status } = useAuth()
+  
+  if (status === 'loading') {
+    return <button disabled>Loading...</button>
   }
-});
-```
-
-#### ConditionalRender
-認証状態に応じてコンテンツを切り替えます：
-
-```typescript
-import { ConditionalRender } from '@noraneko/id-react';
-
-// 基本的な条件分岐
-function NavBar() {
-  return (
-    <nav>
-      <ConditionalRender
-        authenticated={<UserMenu />}
-        unauthenticated={<LoginButton />}
-        loading={<Spinner />}
-      />
-    </nav>
-  );
-}
-
-// ログインボタン自動表示（旧ProtectedRoute mode='manual'機能）
-function PremiumSection() {
-  return (
-    <section>
-      <h2>プレミアム機能</h2>
-      <ConditionalRender
-        showLoginButton={true}
-        loginMessage="プレミアム機能をご利用いただくにはログインが必要です"
-        loginButtonText="プレミアムアカウントでログイン"
-        loginOptions={{
-          scopes: ['premium'],
-          additionalParams: { prompt: 'consent' }
-        }}
-      >
-        <PremiumContent />
-      </ConditionalRender>
-    </section>
-  );
-}
-```
-
-### Hooks
-
-#### useNoranekoID
-統合された唯一のメインHook：
-
-```typescript
-import { useNoranekoID } from '@noraneko/id-react';
-
-function MyComponent() {
-  const { 
-    // 認証状態
-    isAuthenticated, 
-    isLoading, 
-    user,
-    error,
-    
-    // アクション
-    login, 
-    logout,
-    getAccessToken,
-    refreshUser 
-  } = useNoranekoID();
   
-  if (isLoading) return <div>Loading...</div>;
-  
-  return isAuthenticated ? (
-    <div>
-      <h1>Welcome, {user?.display_name}</h1>
-      <button onClick={() => logout()}>ログアウト</button>
-    </div>
-  ) : (
-    <button onClick={() => login()}>ログイン</button>
-  );
-}
-```
-
-### Server-side機能
-
-#### 認証付きAPI呼び出し
-```typescript
-import { authenticatedFetch } from '@noraneko/id-react/nextjs/server';
-
-// サーバーアクション内で使用
-async function deleteItem(id: string) {
-  'use server';
-  
-  const response = await authenticatedFetch(`/api/items/${id}`, {
-    method: 'DELETE'
-  });
-  
-  return response.json();
-}
-```
-
-#### 権限チェック
-```typescript
-import { requireAuthWithPermission, serverAuthorizers } from '@noraneko/id-react/nextjs/server';
-
-export default async function AdminPage() {
-  // 管理者権限が必要
-  await requireAuthWithPermission(serverAuthorizers.admin);
-  
-  return <AdminDashboard />;
-}
-```
-
-## 🔧 設定オプション
-
-### NoranekoIDConfig
-```typescript
-interface NoranekoIDConfig {
-  clientId: string;                    // OAuth2 クライアントID
-  issuer: string;                      // 認証サーバーのベースURL
-  redirectUri?: string;                // リダイレクトURI
-  scopes?: string[];                   // 要求スコープ
-  tokenStorage?: 'localStorage' | 'sessionStorage' | 'memory';
-  storagePrefix?: string;              // ストレージキーのプレフィックス
-  refreshThreshold?: number;           // トークン更新閾値（秒）
-  clockSkewLeeway?: number;            // 時刻スキュー許容範囲（秒）
-}
-```
-
-### Next.js設定
-```typescript
-interface NextJSConfig extends NoranekoIDConfig {
-  useHttpOnlyCookies?: boolean;        // HttpOnly Cookie使用
-  cookies?: {                          // Cookie設定
-    prefix?: string;
-    maxAge?: number;
-    secure?: boolean;
-    sameSite?: 'strict' | 'lax' | 'none';
-  };
-  apiRoute?: {                         // API Route設定
-    basePath?: string;
-  };
-}
-```
-
-## 🛡️ セキュリティ機能
-
-### 実装済みセキュリティ対策
-- ✅ **OAuth2 + PKCE**: RFC 7636完全準拠
-- ✅ **XSS対策**: URL検証、安全なリダイレクト
-- ✅ **Open Redirect対策**: ホワイトリスト方式
-- ✅ **CSRF対策**: SameSite Cookie、State parameter
-- ✅ **HttpOnly Cookie**: セキュアなトークン保存
-
-### セキュリティベストプラクティス
-```typescript
-// 1. HttpOnly Cookieを使用（本番環境推奨）
-const config = {
-  useHttpOnlyCookies: true,
-  cookies: {
-    secure: true,      // HTTPS必須
-    sameSite: 'strict' // CSRF対策
+  if (session) {
+    return (
+      <a href="/api/auth/logout">
+        <button>ログアウト</button>
+      </a>
+    )
   }
-};
-
-// 2. 適切なスコープ指定
-const scopes = ['openid', 'profile', 'email']; // 必要最小限
-
-// 3. トークン有効期限の適切な設定
-const refreshThreshold = 300; // 5分前に更新
+  
+  return (
+    <a href="/api/auth/login">
+      <button>ログイン</button>
+    </a>
+  )
+}
 ```
 
-## 🔗 関連文書
+### カスタムコールバックページ
 
-- [Backend API仕様](../backend/API_REFERENCE.md) - サーバーサイドAPI
-- [Web管理画面](../web/) - 管理コンソール  
-- [一般開発文書](../general/) - 開発フロー・テスト
+```typescript
+// app/auth/callback/page.tsx
+'use client'
+import { useAuthCallback } from '@noranekoid/nextjs/client'
+import { useRouter } from 'next/navigation'
 
-## 🛠️ 開発情報
+export default function CallbackPage() {
+  const router = useRouter()
+  
+  const { status, error } = useAuthCallback({
+    onSuccess: () => {
+      router.push('/dashboard')
+    },
+    onError: (error) => {
+      console.error('認証エラー:', error)
+      router.push('/login?error=' + error.code)
+    },
+    autoRedirect: false, // 手動でリダイレクト
+  })
+  
+  if (status === 'processing') {
+    return <div>認証処理中...</div>
+  }
+  
+  if (status === 'error') {
+    return <div>エラーが発生しました: {error?.message}</div>
+  }
+  
+  return <div>リダイレクト中...</div>
+}
+```
 
-### 必要環境
-- **Node.js**: 16+
-- **TypeScript**: 5+
-- **React**: 16.8+ (Hooks対応)
-- **Next.js**: 14+ (Next.js機能使用時)
+## トラブルシューティング
 
-### ビルド・テスト
+### よくある問題
+
+#### 1. "NORANEKO_DISCOVERY_CONFIG environment variable not found" エラー
+
+ビルド時Discoveryが実行されていません。
+
+**解決策:**
+1. `next.config.js`に`withNoranekoAuth()`を設定
+2. `NORANEKO_AUTH_ISSUER`環境変数を設定  
+3. `npm run build`でビルド時Discoveryを実行
+
+```typescript
+// app/auth.ts
+import { createAuth } from '@noranekoid/nextjs/server'
+
+createAuth({
+  issuer: process.env.NORANEKO_AUTH_ISSUER!,
+  clientId: process.env.NORANEKO_AUTH_CLIENT_ID!,
+  clientSecret: process.env.NORANEKO_AUTH_CLIENT_SECRET!,
+})
+```
+
+#### 2. Cookieが設定されない
+
+- `cookieSecure`がtrueの場合、HTTPSが必要です
+- 開発環境では`cookieSecure: false`を設定してください
+
+#### 3. トークンの自動更新が動作しない
+
+`autoRefresh.enabled`をtrueに設定してください：
+
+```typescript
+createAuth({
+  // 他の設定...
+  autoRefresh: {
+    enabled: true,
+    refreshThreshold: 5 * 60 * 1000, // 5分前
+  }
+})
+```
+
+#### 4. ビルド時Discovery失敗
+
+```
+❌ OIDC discovery failed:
+   Error: HTTP 404: Not Found
+   Issuer: https://auth.example.com
+```
+
+**解決策:**
+1. `NORANEKO_AUTH_ISSUER`のURLを確認
+2. `/.well-known/openid-configuration`が存在するか確認
+3. ビルド環境からIDaaSへのアクセスを確認
+
+### デバッグモード
+
+詳細なログを有効にする：
+
+```typescript
+createAuth({
+  // 他の設定...
+  debug: true
+})
+```
+
+**ビルド時Discoveryログ:**
 ```bash
-# 開発
+npm run build
+
+🔍 Fetching OIDC discovery from: https://auth.example.com/.well-known/openid-configuration
+✅ OIDC discovery successful
+   Authorization: https://auth.example.com/oauth/authorize
+   Token: https://auth.example.com/oauth/token
+   UserInfo: https://auth.example.com/oauth/userinfo
+✅ PKCE (S256) supported
+✅ Pairwise subject identifiers supported
+```
+
+## 貢献方法
+
+1. このリポジトリをフォーク
+2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. Pull Requestを作成
+
+### 開発環境のセットアップ
+
+```bash
+# 依存関係のインストール
+npm install
+
+# 開発モードで実行
 npm run dev
 
 # ビルド
 npm run build
 
-# テスト
-npm run test
-npm run test:coverage
+# テスト実行
+npm test
 
 # 型チェック
 npm run type-check
 
 # Lint
 npm run lint
-npm run lint:fix
 ```
 
-### パッケージ構造
-```
-@noraneko/id-react/
-├── src/
-│   ├── components/          # Reactコンポーネント
-│   ├── context/            # Context Provider
-│   ├── hooks/              # Reactフック
-│   ├── nextjs/             # Next.js統合
-│   │   ├── api/            # API Handlers
-│   │   ├── client/         # クライアントサイド
-│   │   ├── middleware/     # ミドルウェア
-│   │   └── server/         # サーバーサイド
-│   ├── types/              # 型定義
-│   └── utils/              # ユーティリティ
-├── dist/                   # ビルド出力
-└── __tests__/              # テストファイル
-```
+## ライセンス
 
-## 🎯 設計原則
+このプロジェクトはMITライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルを参照してください。
 
-### セキュリティファースト
-- 全ての機能でセキュリティを最優先
-- デフォルトで安全な設定
+## サポート
 
-### 型安全性
-- TypeScript strict mode完全対応
-- 実行時エラーの最小化
-
-### Developer Experience
-- 直感的なAPI設計
-- 豊富な型情報とIntelliSense対応
-- 詳細なエラーメッセージ
-
-### パフォーマンス
-- 最小限のバンドルサイズ
-- 効率的な状態管理
-- 適切なメモ化とキャッシュ
-
----
-
-📝 **Last Updated**: 2025-01-15  
-🔄 **Version**: v0.1.0  
-📋 **Status**: ✅ 実装完了、テスト済み  
-👥 **Maintainers**: noraneko-id development team
+問題や質問がある場合は、[GitHubのIssue](https://github.com/noraneko-id/nextjs/issues)を作成してください。
