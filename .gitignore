@@ -73,3 +73,6 @@ backend/backup_*.sql
 backend/cookies.txt
 backend/test-*.html
 backend/test-*.py
+
+# Claude Code temporary files
+.claude/
